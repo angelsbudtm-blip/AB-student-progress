@@ -65,39 +65,45 @@ def get_subjects_and_na(grade):
 
 # --- FETCH DATA FROM SUPABASE ---
 def fetch_profiles():
-  response = supabase.table("profiles").select("*").execute()
-  profiles_dict = {}
-  for row in response.data:
-    profiles_dict[row["profile_key"]] = {
-        "Name": row["name"],
-        "Grade": row["grade"],
-        "Class": row["class"],
-        "Centre": row["centre"],
-    }
-  return profiles_dict
+  try:
+    response = supabase.table("profiles").select("*").execute()
+    profiles_dict = {}
+    for row in response.data:
+      profiles_dict[row["profile_key"]] = {
+          "Name": row["name"],
+          "Grade": row["grade"],
+          "Class": row["class"],
+          "Centre": row["centre"],
+      }
+    return profiles_dict
+  except Exception as e:
+    st.error(f"Error fetching profiles from Supabase: {e}")
+    return {}
 
 def fetch_records(profile_key):
-  response = (
-      supabase.table("records")
-      .select("*")
-      .eq("profile_key", profile_key)
-      .execute()
-  )
-  if response.data:
-    df = pd.DataFrame(response.data)
-    # Map column names back to application structure
-    df = df.rename(
-        columns={
-            "subject": "Subject",
-            "workbook": "Workbook",
-            "community_service": "Community Service",
-            "attendance": "Attendance",
-            "behaviour": "Behaviour",
-            "check_date": "Check Date",
-            "status": "Status",
-        }
+  try:
+    response = (
+        supabase.table("records")
+        .select("*")
+        .eq("profile_key", profile_key)
+        .execute()
     )
-    return df[["Subject", "Workbook", "Community Service", "Attendance", "Behaviour", "Check Date", "Status"]]
+    if response.data:
+      df = pd.DataFrame(response.data)
+      df = df.rename(
+          columns={
+              "subject": "Subject",
+              "workbook": "Workbook",
+              "community_service": "Community Service",
+              "attendance": "Attendance",
+              "behaviour": "Behaviour",
+              "check_date": "Check Date",
+              "status": "Status",
+          }
+      )
+      return df[["Subject", "Workbook", "Community Service", "Attendance", "Behaviour", "Check Date", "Status"]]
+  except Exception as e:
+    st.error(f"Error fetching records: {e}")
   return pd.DataFrame()
 
 # --- SIDEBAR: PROFILE MANAGEMENT ---
@@ -127,32 +133,35 @@ if menu_action == "Create Profile":
         if profile_key in profiles:
           st.sidebar.warning(f"Profile for {full_name} in {grade} already exists!")
         else:
-          # Insert profile metadata into Supabase
-          supabase.table("profiles").insert({
-              "profile_key": profile_key,
-              "name": full_name,
-              "grade": grade,
-              "class": class_name,
-              "centre": centre,
-          }).execute()
-
-          # Initialize table rows for this profile in Supabase
-          subj_config = get_subjects_and_na(grade)
-          records_to_insert = []
-          for subj, has_wb in subj_config:
-            records_to_insert.append({
+          try:
+            # Insert profile metadata
+            supabase.table("profiles").insert({
                 "profile_key": profile_key,
-                "subject": subj,
-                "workbook": "0/30" if has_wb else "N/A",
-                "community_service": 0,
-                "attendance": 0,
-                "behaviour": 0,
-                "check_date": datetime.today().strftime("%d/%m/%y"),
-                "status": "On Progress",
-            })
-          supabase.table("records").insert(records_to_insert).execute()
-          st.sidebar.success(f"Successfully created profile for {full_name} ({grade})!")
-          st.rerun()
+                "name": full_name,
+                "grade": grade,
+                "class": class_name,
+                "centre": centre,
+            }).execute()
+
+            # Initialize subject records
+            subj_config = get_subjects_and_na(grade)
+            records_to_insert = []
+            for subj, has_wb in subj_config:
+              records_to_insert.append({
+                  "profile_key": profile_key,
+                  "subject": subj,
+                  "workbook": "0/30" if has_wb else "N/A",
+                  "community_service": 0,
+                  "attendance": 0,
+                  "behaviour": 0,
+                  "check_date": datetime.today().strftime("%d/%m/%y"),
+                  "status": "On Progress",
+              })
+            supabase.table("records").insert(records_to_insert).execute()
+            st.sidebar.success(f"Successfully created profile for {full_name} ({grade})!")
+            st.rerun()
+          except Exception as e:
+            st.sidebar.error(f"Database error during creation: {e}")
 
 # 2. DELETE / WITHDRAW PROFILE
 elif menu_action == "Withdraw / Delete Profile":
@@ -163,12 +172,13 @@ elif menu_action == "Withdraw / Delete Profile":
     profile_keys = list(profiles.keys())
     selected_to_delete = st.sidebar.selectbox("Select Profile to Withdraw", profile_keys)
     if st.sidebar.button("Delete Profile", type="primary", use_container_width=True):
-      # Cascade delete handles records deletion automatically if set up in SQL, 
-      # otherwise we delete records first then profile
-      supabase.table("records").delete().eq("profile_key", selected_to_delete).execute()
-      supabase.table("profiles").delete().eq("profile_key", selected_to_delete).execute()
-      st.sidebar.success(f"Profile '{selected_to_delete}' has been successfully deleted/withdrawn.")
-      st.rerun()
+      try:
+        supabase.table("records").delete().eq("profile_key", selected_to_delete).execute()
+        supabase.table("profiles").delete().eq("profile_key", selected_to_delete).execute()
+        st.sidebar.success(f"Profile '{selected_to_delete}' deleted successfully.")
+        st.rerun()
+      except Exception as e:
+        st.sidebar.error(f"Error deleting profile: {e}")
 
 # --- MAIN DASHBOARD: VIEW & EDIT RECORDS ---
 st.title("📋 Student Assessment Deduction Record (Cloud)")
@@ -197,79 +207,81 @@ else:
   st.markdown(f"**Grade Level:** {profile_info['Grade']}")
   st.markdown("---")
 
-  # Calculate totals dynamically
-  display_df = df_records.copy()
-  totals = []
-  for idx, row in display_df.iterrows():
-    wb_val = str(row["Workbook"])
-    cs = int(row["Community Service"])
-    att = int(row["Attendance"])
-    beh = int(row["Behaviour"])
+  if df_records.empty:
+    st.warning("No records found for this profile. Try recreating the profile.")
+  else:
+    display_df = df_records.copy()
+    totals = []
+    for idx, row in display_df.iterrows():
+      wb_val = str(row["Workbook"])
+      cs = int(row["Community Service"])
+      att = int(row["Attendance"])
+      beh = int(row["Behaviour"])
 
-    if wb_val == "N/A":
-      total = cs + att + beh
-      totals.append(f"-{total}/20")
-    else:
-      try:
-        wb_num = int(wb_val.split("/")[0].replace("-", ""))
-      except:
-        wb_num = 0
-      total = wb_num + cs + att + beh
-      totals.append(f"-{total}/50")
-
-  display_df["Total (-)"] = totals
-  column_order = [
-      "Subject",
-      "Workbook",
-      "Community Service",
-      "Attendance",
-      "Behaviour",
-      "Total (-)",
-      "Check Date",
-      "Status",
-  ]
-  display_df = display_df[column_order]
-
-  edited_df = st.data_editor(
-      display_df,
-      column_config={
-          "Subject": st.column_config.TextColumn("Subject", disabled=True),
-          "Workbook": st.column_config.TextColumn("Workbook (-) [Format: X/30 or N/A]"),
-          "Community Service": st.column_config.NumberColumn("Community Service", min_value=0, max_value=10, step=1),
-          "Attendance": st.column_config.NumberColumn("Attendance", min_value=0, max_value=5, step=1),
-          "Behaviour": st.column_config.NumberColumn("Behaviour", min_value=0, max_value=5, step=1),
-          "Total (-)": st.column_config.TextColumn("Total (-)", disabled=True),
-          "Check Date": st.column_config.TextColumn("Check Date", disabled=True),
-          "Status": st.column_config.SelectboxColumn("Status", options=["On Progress", "Completed"], required=True),
-      },
-      use_container_width=True,
-      hide_index=True,
-      key=f"editor_{selected_profile_key}",
-  )
-
-  # Save changes back to Supabase if edits are made
-  if not edited_df.equals(display_df):
-    for i, row in edited_df.iterrows():
-      # Check if any value changed to trigger date update
-      if (
-          row["Workbook"] != df_records.loc[i, "Workbook"]
-          or row["Community Service"] != df_records.loc[i, "Community Service"]
-          or row["Attendance"] != df_records.loc[i, "Attendance"]
-          or row["Behaviour"] != df_records.loc[i, "Behaviour"]
-          or row["Status"] != df_records.loc[i, "Status"]
-      ):
-        new_date = datetime.today().strftime("%d/%m/%y")
+      if wb_val == "N/A":
+        total = cs + att + beh
+        totals.append(f"-{total}/20")
       else:
-        new_date = df_records.loc[i, "Check Date"]
+        try:
+          wb_num = int(wb_val.split("/")[0].replace("-", ""))
+        except:
+          wb_num = 0
+        total = wb_num + cs + att + beh
+        totals.append(f"-{total}/50")
 
-      # Update individual subject record in Supabase database
-      supabase.table("records").update({
-          "workbook": row["Workbook"],
-          "community_service": int(row["Community Service"]),
-          "attendance": int(row["Attendance"]),
-          "behaviour": int(row["Behaviour"]),
-          "check_date": new_date,
-          "status": row["Status"],
-      }).eq("profile_key", selected_profile_key).eq("subject", row["Subject"]).execute()
+    display_df["Total (-)"] = totals
+    column_order = [
+        "Subject",
+        "Workbook",
+        "Community Service",
+        "Attendance",
+        "Behaviour",
+        "Total (-)",
+        "Check Date",
+        "Status",
+    ]
+    display_df = display_df[column_order]
 
-    st.rerun()
+    edited_df = st.data_editor(
+        display_df,
+        column_config={
+            "Subject": st.column_config.TextColumn("Subject", disabled=True),
+            "Workbook": st.column_config.TextColumn("Workbook (-) [Format: X/30 or N/A]"),
+            "Community Service": st.column_config.NumberColumn("Community Service", min_value=0, max_value=10, step=1),
+            "Attendance": st.column_config.NumberColumn("Attendance", min_value=0, max_value=5, step=1),
+            "Behaviour": st.column_config.NumberColumn("Behaviour", min_value=0, max_value=5, step=1),
+            "Total (-)": st.column_config.TextColumn("Total (-)", disabled=True),
+            "Check Date": st.column_config.TextColumn("Check Date", disabled=True),
+            "Status": st.column_config.SelectboxColumn("Status", options=["On Progress", "Completed"], required=True),
+        },
+        use_container_width=True,
+        hide_index=True,
+        key=f"editor_{selected_profile_key}",
+    )
+
+    if not edited_df.equals(display_df):
+      try:
+        for i, row in edited_df.iterrows():
+          if (
+              row["Workbook"] != df_records.loc[i, "Workbook"]
+              or row["Community Service"] != df_records.loc[i, "Community Service"]
+              or row["Attendance"] != df_records.loc[i, "Attendance"]
+              or row["Behaviour"] != df_records.loc[i, "Behaviour"]
+              or row["Status"] != df_records.loc[i, "Status"]
+          ):
+            new_date = datetime.today().strftime("%d/%m/%y")
+          else:
+            new_date = df_records.loc[i, "Check Date"]
+
+          supabase.table("records").update({
+              "workbook": row["Workbook"],
+              "community_service": int(row["Community Service"]),
+              "attendance": int(row["Attendance"]),
+              "behaviour": int(row["Behaviour"]),
+              "check_date": new_date,
+              "status": row["Status"],
+          }).eq("profile_key", selected_profile_key).eq("subject", row["Subject"]).execute()
+
+        st.rerun()
+      except Exception as e:
+        st.error(f"Error updating records: {e}")
