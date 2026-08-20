@@ -5,7 +5,42 @@ from supabase import create_client
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="Student Assessment Deduction Tracker (Online)", layout="wide"
+    page_title="Assessment Deduction — Angels Bud Academy", layout="wide"
+)
+
+# --- CUSTOM CSS & GREEN BUTTON STYLING ---
+st.markdown(
+    """
+    <style>
+    /* Global Theme Adjustments */
+    .stApp {
+        background-color: #fcfbf9;
+    }
+    
+    /* Green Primary Buttons */
+    div.stButton > button, div.stFormSubmitButton > button {
+        background-color: #0d5c46 !important;
+        color: white !important;
+        border-radius: 8px !important;
+        border: none !important;
+        font-weight: 600 !important;
+    }
+    div.stButton > button:hover, div.stFormSubmitButton > button:hover {
+        background-color: #094735 !important;
+        color: white !important;
+    }
+
+    /* Header Banner Styling */
+    .header-container {
+        background: linear-gradient(135deg, #094735 0%, #0d5c46 100%);
+        padding: 30px;
+        border-radius: 16px;
+        color: white;
+        margin-bottom: 25px;
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
 )
 
 # --- SUPABASE CONNECTION SETUP ---
@@ -16,6 +51,35 @@ def init_supabase():
   return create_client(url, key)
 
 supabase = init_supabase()
+
+# --- CONSTANTS ---
+CENTRES = [
+    "Aston",
+    "Bayan Lepas",
+    "Kepong",
+    "Light Grey",
+    "Puchong",
+    "Taman Midah",
+    "Gerik",
+    "Ipoh",
+    "Kelana Jaya",
+    "Kajang",
+]
+
+CENTRE_CLASSES = {
+    "Aston": 2,
+    "Bayan Lepas": 1,
+    "Kepong": 2,
+    "Light Grey": 1,
+    "Puchong": 3,
+    "Taman Midah": 2,
+    "Gerik": 1,
+    "Ipoh": 1,
+    "Kelana Jaya": 2,
+    "Kajang": 1,
+}
+
+GRADES = [f"Grade {i}" for i in range(1, 9)]
 
 # --- SUBJECT & N/A CONFIGURATIONS ---
 def get_subjects_and_na(grade):
@@ -63,225 +127,391 @@ def get_subjects_and_na(grade):
     ]
   return []
 
-# --- FETCH DATA FROM SUPABASE ---
-def fetch_profiles():
+# --- FETCH DATA ---
+def fetch_all_profiles():
   try:
     response = supabase.table("profiles").select("*").execute()
-    profiles_dict = {}
-    for row in response.data:
-      profiles_dict[row["profile_key"]] = {
-          "Name": row["name"],
-          "Grade": row["grade"],
-          "Class": row["class"],
-          "Centre": row["centre"],
-      }
-    return profiles_dict
+    return response.data if response.data else []
   except Exception as e:
-    st.error(f"Error fetching profiles from Supabase: {e}")
-    return {}
+    st.error(f"Error fetching profiles: {e}")
+    return []
 
-def fetch_records(profile_key):
+def fetch_records_for_student(name, centre):
   try:
     response = (
         supabase.table("records")
         .select("*")
-        .eq("profile_key", profile_key)
+        .eq("profile_key", f"{name}_{centre}")
         .execute()
     )
-    if response.data:
-      df = pd.DataFrame(response.data)
-      df = df.rename(
-          columns={
-              "subject": "Subject",
-              "workbook": "Workbook",
-              "community_service": "Community Service",
-              "attendance": "Attendance",
-              "behaviour": "Behaviour",
-              "check_date": "Check Date",
-              "status": "Status",
-          }
-      )
-      return df[["Subject", "Workbook", "Community Service", "Attendance", "Behaviour", "Check Date", "Status"]]
+    return pd.DataFrame(response.data) if response.data else pd.DataFrame()
   except Exception as e:
-    st.error(f"Error fetching records: {e}")
-  return pd.DataFrame()
+    return pd.DataFrame()
 
-# --- SIDEBAR: PROFILE MANAGEMENT ---
-st.sidebar.header("🎓 Student Profile Management")
-menu_action = st.sidebar.radio(
-    "Actions", ["View / Edit Records", "Create Profile", "Withdraw / Delete Profile"]
+# --- HEADER BANNER ---
+st.markdown(
+    """
+    <div class="header-container">
+        <h1>Angels Bud Academy</h1>
+        <h3>Assessment Deduction</h3>
+        <p>Manage student profiles, assessment deductions, grade upgrades, and center records efficiently.</p>
+    </div>
+""",
+    unsafe_allow_html=True,
 )
 
-grades_list = [f"Grade {i}" for i in range(1, 9)]
-profiles = fetch_profiles()
+# --- APP INITIAL FILTER: SELECT CENTRE FIRST ---
+selected_centre = st.selectbox("📍 Select Centre", ["-- Select a Centre --"] + CENTRES)
 
-# 1. CREATE PROFILE
-if menu_action == "Create Profile":
-  st.sidebar.subheader("Add New Student Profile")
-  with st.sidebar.form("create_profile_form"):
-    full_name = st.text_input("Full Name").strip()
-    grade = st.selectbox("Grade", grades_list)
-    class_name = st.text_input("Class").strip()
-    centre = st.text_input("Centre").strip()
-    submit_profile = st.form_submit_button("Create Profile")
-
-    if submit_profile:
-      if not full_name:
-        st.sidebar.error("Please enter the student's full name.")
-      else:
-        profile_key = f"{full_name}_{grade}"
-        if profile_key in profiles:
-          st.sidebar.warning(f"Profile for {full_name} in {grade} already exists!")
-        else:
-          try:
-            # Insert profile metadata
-            supabase.table("profiles").insert({
-                "profile_key": profile_key,
-                "name": full_name,
-                "grade": grade,
-                "class": class_name,
-                "centre": centre,
-            }).execute()
-
-            # Initialize subject records
-            subj_config = get_subjects_and_na(grade)
-            records_to_insert = []
-            for subj, has_wb in subj_config:
-              records_to_insert.append({
-                  "profile_key": profile_key,
-                  "subject": subj,
-                  "workbook": "0/30" if has_wb else "N/A",
-                  "community_service": 0,
-                  "attendance": 0,
-                  "behaviour": 0,
-                  "check_date": datetime.today().strftime("%d/%m/%y"),
-                  "status": "On Progress",
-              })
-            supabase.table("records").insert(records_to_insert).execute()
-            st.sidebar.success(f"Successfully created profile for {full_name} ({grade})!")
-            st.rerun()
-          except Exception as e:
-            st.sidebar.error(f"Database error during creation: {e}")
-
-# 2. DELETE / WITHDRAW PROFILE
-elif menu_action == "Withdraw / Delete Profile":
-  st.sidebar.subheader("Remove Student Profile")
-  if not profiles:
-    st.sidebar.info("No profiles available to delete.")
-  else:
-    profile_keys = list(profiles.keys())
-    selected_to_delete = st.sidebar.selectbox("Select Profile to Withdraw", profile_keys)
-    if st.sidebar.button("Delete Profile", type="primary", use_container_width=True):
-      try:
-        supabase.table("records").delete().eq("profile_key", selected_to_delete).execute()
-        supabase.table("profiles").delete().eq("profile_key", selected_to_delete).execute()
-        st.sidebar.success(f"Profile '{selected_to_delete}' deleted successfully.")
-        st.rerun()
-      except Exception as e:
-        st.sidebar.error(f"Error deleting profile: {e}")
-
-# --- MAIN DASHBOARD: VIEW & EDIT RECORDS ---
-st.title("📋 Student Assessment Deduction Record (Cloud)")
-
-if not profiles:
-  st.info("No student profiles found. Please use the sidebar to **Create Profile** first.")
+if selected_centre == "-- Select a Centre --":
+  st.info(
+      "Please select a centre above to view or register student profiles for that"
+      " location."
+  )
 else:
-  profile_keys = list(profiles.keys())
-  selected_profile_key = st.selectbox(
-      "Select Student Profile",
-      profile_keys,
-      format_func=lambda x: f"{profiles[x]['Name']} — {profiles[x]['Grade']}",
+  # Fetch profiles belonging to this centre
+  all_profiles = fetch_all_profiles()
+  centre_profiles = [p for p in all_profiles if p["centre"] == selected_centre]
+
+  # --- SIDEBAR: ACTIONS (Create Profile / Withdraw / Upgrade) ---
+  st.sidebar.header(f"⚙️ Actions ({selected_centre})")
+  action_mode = st.sidebar.radio(
+      "Select Operation", ["View Records", "Create Student Profile", "Withdraw Student"]
   )
 
-  profile_info = profiles[selected_profile_key]
-  df_records = fetch_records(selected_profile_key)
+  # 1. CREATE PROFILE FORM
+  if action_mode == "Create Student Profile":
+    st.sidebar.subheader("Register New Student")
+    max_classes = CENTRE_CLASSES.get(selected_centre, 1)
+    class_options = [f"Class {i}" for i in range(1, max_classes + 1)]
 
-  st.markdown("---")
-  col1, col2, col3 = st.columns(3)
-  with col1:
-    st.markdown(f"**Name:** {profile_info['Name']}")
-  with col2:
-    st.markdown(f"**Class:** {profile_info['Class']}")
-  with col3:
-    st.markdown(f"**Centre:** {profile_info['Centre']}")
-  st.markdown(f"**Grade Level:** {profile_info['Grade']}")
-  st.markdown("---")
+    with st.sidebar.form("create_profile"):
+      full_name = st.text_input("Student Full Name").strip()
+      grade = st.selectbox("Starting Grade", GRADES)
+      class_name = st.selectbox("Class", class_options)
+      submit_btn = st.form_submit_button("Register & Start")
 
-  if df_records.empty:
-    st.warning("No records found for this profile. Try recreating the profile.")
-  else:
-    display_df = df_records.copy()
-    totals = []
-    for idx, row in display_df.iterrows():
-      wb_val = str(row["Workbook"])
-      cs = int(row["Community Service"])
-      att = int(row["Attendance"])
-      beh = int(row["Behaviour"])
-
-      if wb_val == "N/A":
-        total = cs + att + beh
-        totals.append(f"-{total}/20")
-      else:
-        try:
-          wb_num = int(wb_val.split("/")[0].replace("-", ""))
-        except:
-          wb_num = 0
-        total = wb_num + cs + att + beh
-        totals.append(f"-{total}/50")
-
-    display_df["Total (-)"] = totals
-    column_order = [
-        "Subject",
-        "Workbook",
-        "Community Service",
-        "Attendance",
-        "Behaviour",
-        "Total (-)",
-        "Check Date",
-        "Status",
-    ]
-    display_df = display_df[column_order]
-
-    edited_df = st.data_editor(
-        display_df,
-        column_config={
-            "Subject": st.column_config.TextColumn("Subject", disabled=True),
-            "Workbook": st.column_config.TextColumn("Workbook (-) [Format: X/30 or N/A]"),
-            "Community Service": st.column_config.NumberColumn("Community Service", min_value=0, max_value=10, step=1),
-            "Attendance": st.column_config.NumberColumn("Attendance", min_value=0, max_value=5, step=1),
-            "Behaviour": st.column_config.NumberColumn("Behaviour", min_value=0, max_value=5, step=1),
-            "Total (-)": st.column_config.TextColumn("Total (-)", disabled=True),
-            "Check Date": st.column_config.TextColumn("Check Date", disabled=True),
-            "Status": st.column_config.SelectboxColumn("Status", options=["On Progress", "Completed"], required=True),
-        },
-        use_container_width=True,
-        hide_index=True,
-        key=f"editor_{selected_profile_key}",
-    )
-
-    if not edited_df.equals(display_df):
-      try:
-        for i, row in edited_df.iterrows():
-          if (
-              row["Workbook"] != df_records.loc[i, "Workbook"]
-              or row["Community Service"] != df_records.loc[i, "Community Service"]
-              or row["Attendance"] != df_records.loc[i, "Attendance"]
-              or row["Behaviour"] != df_records.loc[i, "Behaviour"]
-              or row["Status"] != df_records.loc[i, "Status"]
-          ):
-            new_date = datetime.today().strftime("%d/%m/%y")
+      if submit_btn:
+        if not full_name:
+          st.sidebar.error("Please enter the student's full name.")
+        else:
+          # Check duplication across this centre
+          existing_names = [p["name"].lower() for p in centre_profiles]
+          if full_name.lower() in existing_names:
+            st.sidebar.warning(
+                f"A student named '{full_name}' already exists in"
+                f" {selected_centre}!"
+            )
           else:
-            new_date = df_records.loc[i, "Check Date"]
+            profile_key = f"{full_name}_{selected_centre}"
+            try:
+              # Insert Profile
+              supabase.table("profiles").insert({
+                  "profile_key": profile_key,
+                  "name": full_name,
+                  "grade": grade,
+                  "class": class_name,
+                  "centre": selected_centre,
+                  "status": "On Progress",
+              }).execute()
 
-          supabase.table("records").update({
-              "workbook": row["Workbook"],
-              "community_service": int(row["Community Service"]),
-              "attendance": int(row["Attendance"]),
-              "behaviour": int(row["Behaviour"]),
-              "check_date": new_date,
-              "status": row["Status"],
-          }).eq("profile_key", selected_profile_key).eq("subject", row["Subject"]).execute()
+              # Insert Initial Grade Records
+              subj_config = get_subjects_and_na(grade)
+              records_to_insert = []
+              for subj, has_wb in subj_config:
+                records_to_insert.append({
+                    "profile_key": profile_key,
+                    "grade": grade,
+                    "subject": subj,
+                    "workbook": "0/30" if has_wb else "N/A",
+                    "community_service": 0,
+                    "attendance": 0,
+                    "behaviour": 0,
+                    "check_date": datetime.today().strftime("%d/%m/%y"),
+                    "status": "On Progress",
+                })
+              supabase.table("records").insert(records_to_insert).execute()
+              st.sidebar.success(
+                  f"Successfully registered {full_name} in {selected_centre}!"
+              )
+              st.rerun()
+            except Exception as e:
+              st.sidebar.error(f"Error creating profile: {e}")
 
-        st.rerun()
-      except Exception as e:
-        st.error(f"Error updating records: {e}")
+  # 2. WITHDRAW PROFILE
+  elif action_mode == "Withdraw Student":
+    st.sidebar.subheader("Withdraw / Delete Student")
+    if not centre_profiles:
+      st.sidebar.info("No students registered under this centre yet.")
+    else:
+      student_names = [p["name"] for p in centre_profiles]
+      to_delete = st.sidebar.selectbox("Select Student to Withdraw", student_names)
+      if st.sidebar.button("Confirm Withdrawal", type="primary"):
+        try:
+          profile_key = f"{to_delete}_{selected_centre}"
+          supabase.table("records").delete().eq(
+              "profile_key", profile_key
+          ).execute()
+          supabase.table("profiles").delete().eq(
+              "profile_key", profile_key
+          ).execute()
+          st.sidebar.success(
+              f"Student '{to_delete}' has been successfully withdrawn."
+          )
+          st.rerun()
+        except Exception as e:
+          st.sidebar.error(f"Error withdrawing student: {e}")
+
+  # --- MAIN DASHBOARD: VIEW & EDIT STUDENT RECORDS ---
+  st.subheader(f"📋 Student Records for {selected_centre}")
+
+  if not centre_profiles:
+    st.info(
+        f"No student profiles found for {selected_centre}. Use the sidebar to"
+        " create a student profile."
+    )
+  else:
+    student_map = {p["name"]: p for p in centre_profiles}
+    selected_student_name = st.selectbox(
+        "Select Student Profile", list(student_map.keys())
+    )
+    student_info = student_map[selected_student_name]
+
+    # Fetch all grade historical records for this student
+    records_df = fetch_records_for_student(selected_student_name, selected_centre)
+
+    if records_df.empty:
+      st.warning("No assessment records found for this student.")
+    else:
+      # Identify grades the student experienced
+      available_grades = sorted(
+          records_df["grade"].unique(),
+          key=lambda x: int(x.replace("Grade ", "")),
+      )
+
+      st.markdown("---")
+      col1, col2, col3, col4 = st.columns(4)
+      with col1:
+        st.markdown(f"**Name:** {student_info['name']}")
+      with col2:
+        st.markdown(f"**Class:** {student_info['class']}")
+      with col3:
+        st.markdown(f"**Centre:** {student_info['centre']}")
+      with col4:
+        st.markdown(f"**Current Grade:** {student_info['grade']}")
+      st.markdown("---")
+
+      # Grade Selection Dropdown for viewing historical or active records
+      selected_grade_view = st.selectbox(
+          "Select Grade Record to View/Edit", available_grades
+      )
+
+      # Determine if viewing current grade or past grade
+      is_current_grade = selected_grade_view == student_info["grade"]
+
+      # Filter records for selected grade
+      grade_records = records_df[
+          records_df["grade"] == selected_grade_view
+      ].copy()
+
+      # Format table columns
+      display_df = grade_records[
+          [
+              "subject",
+              "workbook",
+              "community_service",
+              "attendance",
+              "behaviour",
+              "check_date",
+              "status",
+          ]
+      ].copy()
+      display_df.columns = [
+          "Subject",
+          "Workbook",
+          "Community Service",
+          "Attendance",
+          "Behaviour",
+          "Check Date",
+          "Status",
+      ]
+
+      # Calculate Totals
+      totals = []
+      for idx, row in display_df.iterrows():
+        wb_val = str(row["Workbook"])
+        cs = int(row["Community Service"])
+        att = int(row["Attendance"])
+        beh = int(row["Behaviour"])
+
+        if wb_val == "N/A":
+          total = cs + att + beh
+          totals.append(f"-{total}/20")
+        else:
+          try:
+            wb_num = int(wb_val.split("/")[0].replace("-", ""))
+          except:
+            wb_num = 0
+          total = wb_num + cs + att + beh
+          totals.append(f"-{total}/50")
+
+      display_df["Total (-)"] = totals
+      display_df = display_df[
+          [
+              "Subject",
+              "Workbook",
+              "Community Service",
+              "Attendance",
+              "Behaviour",
+              "Total (-)",
+              "Check Date",
+              "Status",
+          ]
+      ]
+
+      if is_current_grade:
+        st.markdown(f"#### Active Record — {selected_grade_view}")
+        edited_df = st.data_editor(
+            display_df,
+            column_config={
+                "Subject": st.column_config.TextColumn("Subject", disabled=True),
+                "Workbook": st.column_config.TextColumn(
+                    "Workbook (-) [Format: X/30 or N/A]"
+                ),
+                "Community Service": st.column_config.NumberColumn(
+                    "Community Service", min_value=0, max_value=10, step=1
+                ),
+                "Attendance": st.column_config.NumberColumn(
+                    "Attendance", min_value=0, max_value=5, step=1
+                ),
+                "Behaviour": st.column_config.NumberColumn(
+                    "Behaviour", min_value=0, max_value=5, step=1
+                ),
+                "Total (-)": st.column_config.TextColumn(
+                    "Total (-)", disabled=True
+                ),
+                "Check Date": st.column_config.TextColumn(
+                    "Check Date", disabled=True
+                ),
+                "Status": st.column_config.SelectboxColumn(
+                    "Status", options=["On Progress", "Completed"], required=True
+                ),
+            },
+            use_container_width=True,
+            hide_index=True,
+            key=f"active_editor_{selected_student_name}_{selected_grade_view}",
+        )
+
+        # Save changes back to Supabase
+        if not edited_df.equals(display_df):
+          try:
+            for i, row in edited_df.iterrows():
+              orig_row = display_df.loc[i]
+              if (
+                  row["Workbook"] != orig_row["Workbook"]
+                  or row["Community Service"] != orig_row["Community Service"]
+                  or row["Attendance"] != orig_row["Attendance"]
+                  or row["Behaviour"] != orig_row["Behaviour"]
+                  or row["Status"] != orig_row["Status"]
+              ):
+                new_date = datetime.today().strftime("%d/%m/%y")
+              else:
+                new_date = orig_row["Check Date"]
+
+              supabase.table("records").update({
+                  "workbook": row["Workbook"],
+                  "community_service": int(row["Community Service"]),
+                  "attendance": int(row["Attendance"]),
+                  "behaviour": int(row["Behaviour"]),
+                  "check_date": new_date,
+                  "status": row["Status"],
+              }).eq(
+                  "profile_key", f"{selected_student_name}_{selected_centre}"
+              ).eq(
+                  "grade", selected_grade_view
+              ).eq(
+                  "subject", row["Subject"]
+              ).execute()
+            st.rerun()
+          except Exception as e:
+            st.error(f"Error updating record: {e}")
+      else:
+        st.markdown(
+            f"#### Historical Record (Locked) — {selected_grade_view}"
+        )
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+      # --- UPGRADE STUDENT GRADE SECTION ---
+      if is_current_grade:
+        st.markdown("---")
+        st.markdown("### 🚀 Student Grade Upgrade")
+        current_grade_num = int(student_info["grade"].replace("Grade ", ""))
+
+        if current_grade_num < 8:
+          next_grade = f"Grade {current_grade_num + 1}"
+          st.write(
+              f"Ready to upgrade **{selected_student_name}** from"
+              f" **{student_info['grade']}** to **{next_grade}**?"
+          )
+
+          # Confirmation checkbox before enabling upgrade button
+          confirm_upgrade = st.checkbox(
+              f"I confirm that {selected_student_name} is upgrading to"
+              f" {next_grade}"
+          )
+
+          if st.button("Upgrade Student Grade", type="primary"):
+            if confirm_upgrade:
+              try:
+                profile_key = f"{selected_student_name}_{selected_centre}"
+
+                # Update student profile current grade
+                supabase.table("profiles").update({"grade": next_grade}).eq(
+                    "profile_key", profile_key
+                ).execute()
+
+                # Initialize new grade subject records
+                subj_config = get_subjects_and_na(next_grade)
+                new_records = []
+                for subj, has_wb in subj_config:
+                  new_records.append({
+                      "profile_key": profile_key,
+                      "grade": next_grade,
+                      "subject": subj,
+                      "workbook": "0/30" if has_wb else "N/A",
+                      "community_service": 0,
+                      "attendance": 0,
+                      "behaviour": 0,
+                      "check_date": datetime.today().strftime("%d/%m/%y"),
+                      "status": "On Progress",
+                  })
+                supabase.table("records").insert(new_records).execute()
+                st.success(
+                    f"{selected_student_name} successfully upgraded to"
+                    f" {next_grade}!"
+                )
+                st.rerun()
+              except Exception as e:
+                st.error(f"Error during upgrade: {e}")
+            else:
+                st.warning(
+                    "Please check the confirmation box above before clicking"
+                    " upgrade."
+                )
+        else:
+          st.info(
+              "Student has already reached the maximum grade level (Grade 8)."
+          )
+
+# --- FOOTER ---
+st.markdown("---")
+st.markdown(
+    """
+    <div style="text-align: center; color: #555; padding: 10px;">
+        <p>Contact: <b>Angels Bud Academy Management</b></p>
+        <p>Email: care@angelsbud.com, abcareline@gmail.com</p>
+        <p style="font-size: 12px; margin-top: 10px;">POWERED BY VOK — We Love We Care</p>
+    </div>
+""",
+    unsafe_allow_html=True,
+)
