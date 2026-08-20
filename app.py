@@ -163,15 +163,55 @@ st.markdown(
         font-size: 13px;
         font-family: -apple-system, sans-serif;
     }
-    
+
+    /* 7b. Clickable student row (whole card opens the profile) */
+    .student-row-wrapper {
+        position: relative;
+    }
+    .student-row-wrapper [data-testid="stVerticalBlockBorderWrapper"] {
+        transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    .student-row-wrapper:hover [data-testid="stVerticalBlockBorderWrapper"] {
+        border-color: #033c29;
+        box-shadow: 0 2px 8px rgba(3, 60, 41, 0.12);
+    }
+    /* The invisible "open profile" button is given key="sel_..." — Streamlit
+       exposes that as a class "st-key-sel_..." on its wrapping div, which we
+       stretch over the row so the whole card (minus the trash icon) is clickable. */
+    [class*="st-key-sel_"] {
+        position: absolute !important;
+        top: 0;
+        left: 0;
+        width: 88%;
+        height: 100%;
+        z-index: 5;
+        margin: 0 !important;
+    }
+    [class*="st-key-sel_"] button {
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+    /* Keep the trash icon clickable above the invisible overlay */
+    [class*="st-key-del_"] {
+        position: relative;
+        z-index: 10;
+    }
+
     /* Make trash button red */
-    [data-testid="stButton"] button[aria-label="Delete"] {
+    [data-testid="stButton"] button[aria-label="Delete"],
+    [class*="st-key-del_"] button {
         color: #ef4444 !important;
         background: transparent !important;
         border: none !important;
         box-shadow: none !important;
     }
-    [data-testid="stButton"] button[aria-label="Delete"]:hover {
+    [data-testid="stButton"] button[aria-label="Delete"]:hover,
+    [class*="st-key-del_"] button:hover {
         color: #b91c1c !important;
         background: #fee2e2 !important;
     }
@@ -401,14 +441,13 @@ else:
             unsafe_allow_html=True
         )
     else:
-        # Render Student Cards
+        # Render Student Cards — whole row is clickable to open the profile
         for p in filtered_profiles:
+            st.markdown('<div class="student-row-wrapper">', unsafe_allow_html=True)
             with st.container(border=True):
-                # Using columns to put text on left and delete button on right
                 c_text, c_actions = st.columns([0.9, 0.1], vertical_alignment="center")
-                
+
                 with c_text:
-                    # Added a hidden button mechanism here so clicking the text can open the editor
                     is_middle = "Middle School" if int(p['grade'].split(' ')[1]) >= 6 else "Primary School"
                     st.markdown(
                         f"""
@@ -417,12 +456,7 @@ else:
                         """,
                         unsafe_allow_html=True
                     )
-                    # Invisible button overlaid to allow selecting the student
-                    if st.button(f"View {p['name']}", key=f"sel_{p['profile_key']}", help="View & Edit Records", use_container_width=True):
-                        st.session_state.viewing_student = p['name']
-                        st.session_state.show_create_form = False
-                        st.rerun()
-                        
+
                 with c_actions:
                     # Trash button to withdraw/delete
                     if st.button("🗑️", key=f"del_{p['profile_key']}", help="Withdraw Student"):
@@ -434,6 +468,14 @@ else:
                             st.rerun()
                         except Exception as e:
                             st.error(f"Error deleting: {e}")
+
+                # Invisible full-row button (styled via the .st-key-sel_ CSS above)
+                # that actually opens the profile when the card is clicked.
+                if st.button("Open profile", key=f"sel_{p['profile_key']}"):
+                    st.session_state.viewing_student = p['name']
+                    st.session_state.show_create_form = False
+                    st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
                             
     # --- STUDENT DASHBOARD VIEWER (Shown only if a student is clicked) ---
     if st.session_state.viewing_student:
