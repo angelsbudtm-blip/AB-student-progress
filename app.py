@@ -9,50 +9,63 @@ st.set_page_config(
     page_title="Assessment Deduction — Angels Bud Academy", layout="wide"
 )
 
-# --- CUSTOM CSS & DESIGN SYSTEM (MATCHING LOVABLE TOKENS) ---
+# --- CUSTOM CSS & SHADCN UI / ANGELS BUD THEME STYLING ---
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&family=Manrope:wght@300..800&display=swap');
-
     /* Global Theme Adjustments */
     .stApp {
-        background-color: oklch(0.975 0.015 85);
-        color: oklch(0.28 0.055 165);
-        font-family: 'Manrope', system-ui, sans-serif;
+        background-color: #fcfbf9;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
     
-    /* Green Primary Buttons */
+    /* Green Primary Buttons (Matching Shadcn/Custom style) */
     div.stButton > button, div.stFormSubmitButton > button {
-        background-color: oklch(0.36 0.075 165) !important;
-        color: oklch(0.985 0.01 90) !important;
-        border-radius: 0.625rem !important;
+        background-color: #0d5c46 !important;
+        color: white !important;
+        border-radius: 8px !important;
         border: none !important;
-        font-weight: 600 !important;
+        font-weight: 500 !important;
+        transition: background-color 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     }
     div.stButton > button:hover, div.stFormSubmitButton > button:hover {
-        background-color: oklch(0.33 0.07 168) !important;
+        background-color: #094735 !important;
+        color: white !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }
 
-    /* Header Banner Styling (Lovable SiteHero style) */
+    /* Header Banner Styling */
     .header-container {
-        background-color: oklch(0.33 0.07 168);
-        padding: 2.5rem;
-        border-radius: 1.5rem;
-        color: oklch(0.98 0.012 90);
-        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        background: linear-gradient(135deg, #094735 0%, #0d5c46 100%);
+        padding: 35px;
+        border-radius: 12px;
+        color: white;
         margin-bottom: 25px;
-        margin-top: 5px;
+        margin-top: 10px;
+        box-shadow: 0 4px 12px rgba(13, 92, 70, 0.15);
     }
     
-    /* Footer Typography & Links */
+    /* Card Container simulation */
+    .custom-card {
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        margin-bottom: 20px;
+    }
+
+    /* Footer Styling Links */
     .footer-text {
-        font-family: 'Manrope', system-ui, sans-serif;
+        font-family: sans-serif;
+        color: #555;
+        font-size: 14px;
     }
     .footer-link {
-        color: oklch(0.33 0.07 168);
+        color: #0d5c46;
         text-decoration: none;
-        font-weight: 600;
+        font-weight: 500;
     }
     .footer-link:hover {
         text-decoration: underline;
@@ -65,9 +78,9 @@ st.markdown(
 # --- SUPABASE CONNECTION SETUP ---
 @st.cache_resource
 def init_supabase():
-  url = st.secrets["supabase"]["url"]
-  key = st.secrets["supabase"]["key"]
-  return create_client(url, key)
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
 
 supabase = init_supabase()
 
@@ -166,17 +179,17 @@ def fetch_records_for_student(name, centre):
   except Exception as e:
     return pd.DataFrame()
 
-# --- HEADER SECTION: LOGO OUTSIDE AND ABOVE THE BOX ---
-logo_path = "assets/abc-logo.png"
-if os.path.exists(logo_path):
+# --- HEADER BANNER WITH SMALL OUTSIDE LOGO & BADGE ---
+crest_path = "assets/angels-bud-crest.png"
+if os.path.exists(crest_path):
   col_logo, col_badge = st.columns([1, 15])
   with col_logo:
-    st.image(logo_path, width=56)
+    st.image(crest_path, width=48)
   with col_badge:
     st.markdown(
         """
-        <div style="display: inline-block; background-color: oklch(0.83 0.11 75); color: oklch(0.3 0.07 165); padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; font-family: 'Manrope', sans-serif; margin-top: 10px;">
-            Angels Bud Academy
+        <div style="display: inline-block; background-color: #e5b37e; color: #3b2813; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; font-family: sans-serif; margin-top: 10px;">
+            ✨ ANGELS BUD ACADEMY
         </div>
         """,
         unsafe_allow_html=True,
@@ -185,8 +198,9 @@ if os.path.exists(logo_path):
 st.markdown(
     """
     <div class="header-container">
-        <h1 style="margin: 0; font-size: 2.25rem; font-family: 'Lora', Georgia, serif; font-weight: 700; letter-spacing: -0.025em;">Angels Bud Academy</h1>
-        <p style="margin-top: 0.5rem; font-size: 1.25rem; font-family: 'Lora', Georgia, serif; font-weight: 600;">Admin Operational Guide</p>
+        <h1 style="margin: 0; font-size: 36px; font-family: serif;">Angels Bud Academy</h1>
+        <h3 style="margin: 5px 0 15px 0; font-weight: 400; font-family: sans-serif; opacity: 0.95;">Assessment Deduction</h3>
+        <p style="margin: 0; font-family: sans-serif; opacity: 0.9; font-size: 15px;">Manage student profiles, assessment deductions, grade upgrades, and center records efficiently.</p>
     </div>
 """,
     unsafe_allow_html=True,
@@ -197,8 +211,7 @@ selected_centre = st.selectbox("📍 Select Centre", ["-- Select a Centre --"] +
 
 if selected_centre == "-- Select a Centre --":
   st.info(
-      "Please select a centre above to view or register student profiles for that"
-      " location."
+      "Please select a centre above to view or register student profiles for that location."
   )
 else:
   all_profiles = fetch_all_profiles()
@@ -229,8 +242,7 @@ else:
           existing_names = [p["name"].lower() for p in centre_profiles]
           if full_name.lower() in existing_names:
             st.sidebar.warning(
-                f"A student named '{full_name}' already exists in"
-                f" {selected_centre}!"
+                f"A student named '{full_name}' already exists in {selected_centre}!"
             )
           else:
             profile_key = f"{full_name}_{selected_centre}"
@@ -295,8 +307,7 @@ else:
 
   if not centre_profiles:
     st.info(
-        f"No student profiles found for {selected_centre}. Use the sidebar to"
-        " create a student profile."
+        f"No student profiles found for {selected_centre}. Use the sidebar to create a student profile."
     )
   else:
     student_map = {p["name"]: p for p in centre_profiles}
@@ -468,12 +479,10 @@ else:
         if current_grade_num < 8:
           next_grade = f"Grade {current_grade_num + 1}"
           st.write(
-              f"Ready to upgrade **{selected_student_name}** from"
-              f" **{student_info['grade']}** to **{next_grade}**?"
+              f"Ready to upgrade **{selected_student_name}** from **{student_info['grade']}** to **{next_grade}**?"
           )
           confirm_upgrade = st.checkbox(
-              f"I confirm that {selected_student_name} is upgrading to"
-              f" {next_grade}"
+              f"I confirm that {selected_student_name} is upgrading to {next_grade}"
           )
 
           if st.button("Upgrade Student Grade", type="primary"):
@@ -500,33 +509,25 @@ else:
                   })
                 supabase.table("records").insert(new_records).execute()
                 st.success(
-                    f"{selected_student_name} successfully upgraded to"
-                    f" {next_grade}!"
+                    f"{selected_student_name} successfully upgraded to {next_grade}!"
                 )
                 st.rerun()
               except Exception as e:
                 st.error(f"Error during upgrade: {e}")
             else:
               st.warning(
-                  "Please check the confirmation box above before clicking"
-                  " upgrade."
+                  "Please check the confirmation box above before clicking upgrade."
               )
         else:
           st.info(
               "Student has already reached the maximum grade level (Grade 8)."
           )
 
-# --- FOOTER SECTION (MATCHING LOVABLE SITEFOOTER) ---
+# --- FOOTER WITH LINKED CONTACTS AND VOK BANNER ---
 st.markdown("---")
 st.markdown(
     """
     <div style="text-align: center;" class="footer-text">
-        <div style="background-color: oklch(0.955 0.028 85); padding: 1.5rem; border-radius: 1rem; margin-bottom: 1.5rem;">
-            <h2 style="font-family: 'Lora', Georgia, serif; font-size: 1.25rem; font-weight: 700; color: oklch(0.33 0.07 168); margin: 0;">Need a hand with the next step?</h2>
-            <p style="margin: 0.5rem auto 0 auto; max-width: 36rem; font-size: 0.875rem; color: color-mix(in srgb, oklch(0.33 0.07 168) 80%, transparent);">
-                Choose your centre, open a student profile and record the assessment deduction for the current grade — every previous grade stays saved.
-            </p>
-        </div>
         <p style="margin-bottom: 5px;">
             Contact: <a href="https://wa.me/60164124122" target="_blank" class="footer-link"><b>Angels Bud Academy Management</b></a>
         </p>
@@ -541,14 +542,11 @@ st.markdown(
 
 col_f1, col_f2, col_f3 = st.columns([1, 2, 1])
 with col_f2:
-  vok_path = "assets/vok-logo.png"
-  if os.path.exists(vok_path):
-    st.image(vok_path, use_container_width=True)
+  banner_path = "assets/vok-banner.png"
+  if os.path.exists(banner_path):
+    st.image(banner_path, use_container_width=True)
   else:
     st.markdown(
-        "<div style='text-align: center;' class='footer-text'><p"
-        " style='font-size: 0.75rem; font-weight: 600; text-transform: uppercase;"
-        " letter-spacing: 0.2em; color: oklch(0.52 0.03 160);'>Powered"
-        " by</p></div>",
+        "<div style='text-align: center;' class='footer-text'><b>POWERED BY VOK</b><br><span style='font-size: 11px; color: #777;'>We Love We Care</span></div>",
         unsafe_allow_html=True,
     )
