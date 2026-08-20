@@ -7,9 +7,9 @@ from supabase import create_client
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="Assessment Deduction — Angels Bud Academy", 
+    page_title="Assessment Deduction — Angels Bud Academy",
     layout="centered",
-    initial_sidebar_state="collapsed" # Collapsed by default as actions moved to main UI
+    initial_sidebar_state="collapsed",
 )
 
 # --- IMAGE ENCODING HELPER ---
@@ -22,37 +22,63 @@ def get_base64_image(image_path):
 crest_b64 = get_base64_image("assets/angels-bud-crest.png")
 vok_b64 = get_base64_image("assets/vok-banner.png")
 
-# --- CUSTOM CSS FOR EXACT UI MATCH ---
+# --- CUSTOM CSS — brand palette + fonts (Manrope / Lora) ---
 st.markdown(
     """
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Lora:wght@400;500;600;700&display=swap');
+
+    :root {
+        --abc-background: #f7f4ec;
+        --abc-card: #ffffff;
+        --abc-brand: #033c29;
+        --abc-brand-foreground: #f8f6ec;
+        --abc-secondary: #f1ebd8;
+        --abc-secondary-foreground: #2b4638;
+        --abc-accent: #eabf8a;
+        --abc-accent-foreground: #033c29;
+        --abc-muted-foreground: #6b7280;
+        --abc-border: #e5e7eb;
+        --abc-destructive: #ef4444;
+        --abc-destructive-dark: #b91c1c;
+        --abc-success: #1f9d55;
+        --abc-success-bg: #e4f6ea;
+        --abc-warning: #b7791f;
+        --abc-warning-bg: #fbf0d9;
+        --abc-radius: 12px;
+    }
+
+    * {
+        font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
     /* 1. Global App Background */
     .stApp {
-        background-color: #f7f4ec !important;
+        background-color: var(--abc-background) !important;
     }
-    
+
     .block-container {
         padding-top: 2rem !important;
-        max-width: 850px !important; 
+        max-width: 850px !important;
     }
 
     /* 2. Top Dark Green Header Card */
     .main-header-card {
-        background-color: #033c29;
+        background-color: var(--abc-brand);
         border-radius: 16px;
         padding: 40px;
-        color: white;
+        color: var(--abc-brand-foreground);
         margin-bottom: 25px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
-    
+
     .header-top-row {
         display: flex;
         align-items: center;
         gap: 15px;
         margin-bottom: 20px;
     }
-    
+
     .logo-box {
         background-color: white;
         border-radius: 12px;
@@ -63,16 +89,16 @@ st.markdown(
         justify-content: center;
         padding: 5px;
     }
-    
+
     .logo-box img {
         max-width: 100%;
         max-height: 100%;
     }
-    
+
     .academy-badge {
-        background-color: #eabf8a;
-        color: #033c29;
-        font-family: -apple-system, sans-serif;
+        background-color: var(--abc-accent);
+        color: var(--abc-accent-foreground);
+        font-family: 'Manrope', sans-serif;
         font-size: 11px;
         font-weight: 800;
         letter-spacing: 0.5px;
@@ -80,24 +106,24 @@ st.markdown(
         border-radius: 20px;
         text-transform: uppercase;
     }
-    
+
     .header-title {
-        font-family: 'Georgia', serif !important;
+        font-family: 'Lora', Georgia, serif !important;
         font-size: 42px;
-        font-weight: bold;
+        font-weight: 700;
         margin: 0 0 5px 0;
         letter-spacing: -0.5px;
     }
-    
+
     .header-subtitle {
-        font-family: 'Georgia', serif !important;
+        font-family: 'Lora', Georgia, serif !important;
         font-size: 24px;
-        font-weight: bold;
+        font-weight: 600;
         margin: 0 0 20px 0;
     }
-    
+
     .header-description {
-        font-family: -apple-system, sans-serif;
+        font-family: 'Manrope', sans-serif;
         font-size: 14px;
         line-height: 1.5;
         margin: 0;
@@ -107,33 +133,37 @@ st.markdown(
 
     /* 3. Streamlit Native Card Overrides */
     [data-testid="stVerticalBlockBorderWrapper"] {
-        background-color: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
+        background-color: var(--abc-card);
+        border: 1px solid var(--abc-border);
+        border-radius: var(--abc-radius);
         padding: 15px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
 
     /* 4. Headings styling */
     h2, h3 {
-        font-family: 'Georgia', serif !important;
-        color: #033c29 !important;
-        font-weight: bold !important;
+        font-family: 'Lora', Georgia, serif !important;
+        color: var(--abc-brand) !important;
+        font-weight: 700 !important;
     }
 
-    /* 5. Custom Button Styling */
+    /* 5. Buttons */
     .stButton > button[kind="primary"] {
-        background-color: #033c29 !important;
-        color: white !important;
+        background-color: var(--abc-brand) !important;
+        color: var(--abc-brand-foreground) !important;
         border-radius: 8px !important;
         height: 42px !important;
         font-weight: 600 !important;
+        border: none !important;
+    }
+    .stButton > button[kind="secondary"] {
+        border-radius: 8px !important;
     }
 
     /* 6. Empty State Card */
     .empty-state {
         border: 1.5px dashed #cbd5e1;
-        border-radius: 12px;
+        border-radius: var(--abc-radius);
         padding: 40px 20px;
         text-align: center;
         background-color: #fafafa;
@@ -142,26 +172,26 @@ st.markdown(
     }
     .empty-icon {
         font-size: 32px;
-        color: #64748b;
+        color: var(--abc-muted-foreground);
         margin-bottom: 10px;
     }
     .empty-text {
-        color: #64748b;
+        color: var(--abc-muted-foreground);
         font-size: 14px;
-        font-family: -apple-system, sans-serif;
+        font-family: 'Manrope', sans-serif;
     }
 
     /* 7. Student List Card */
     .student-title {
-        color: #033c29;
+        color: var(--abc-brand);
         font-size: 18px;
         font-weight: 500;
         margin-bottom: 4px;
     }
     .student-subtitle {
-        color: #6b7280;
+        color: var(--abc-muted-foreground);
         font-size: 13px;
-        font-family: -apple-system, sans-serif;
+        font-family: 'Manrope', sans-serif;
     }
 
     /* 7b. Clickable student row (whole card opens the profile) */
@@ -172,12 +202,13 @@ st.markdown(
         transition: box-shadow 0.15s ease, border-color 0.15s ease;
     }
     .student-row-wrapper:hover [data-testid="stVerticalBlockBorderWrapper"] {
-        border-color: #033c29;
+        border-color: var(--abc-brand);
         box-shadow: 0 2px 8px rgba(3, 60, 41, 0.12);
     }
-    /* The invisible "open profile" button is given key="sel_..." — Streamlit
-       exposes that as a class "st-key-sel_..." on its wrapping div, which we
-       stretch over the row so the whole card (minus the trash icon) is clickable. */
+    /* Requires Streamlit 1.36+, which exposes a widget's key as class
+       "st-key-<key>" on its wrapping div. We stretch the invisible
+       "open profile" button (key="sel_...") over the row so the whole
+       card is clickable, minus the trash icon which stays on top. */
     [class*="st-key-sel_"] {
         position: absolute !important;
         top: 0;
@@ -196,45 +227,66 @@ st.markdown(
         background: transparent !important;
         box-shadow: none !important;
     }
-    /* Keep the trash icon clickable above the invisible overlay */
     [class*="st-key-del_"] {
         position: relative;
         z-index: 10;
     }
 
-    /* Make trash button red */
+    /* Trash button styling */
     [data-testid="stButton"] button[aria-label="Delete"],
     [class*="st-key-del_"] button {
-        color: #ef4444 !important;
+        color: var(--abc-destructive) !important;
         background: transparent !important;
         border: none !important;
         box-shadow: none !important;
     }
     [data-testid="stButton"] button[aria-label="Delete"]:hover,
     [class*="st-key-del_"] button:hover {
-        color: #b91c1c !important;
+        color: var(--abc-destructive-dark) !important;
         background: #fee2e2 !important;
+    }
+
+    /* 7c. Status pill badges (used in the read-only grade view) */
+    .status-pill {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        font-family: 'Manrope', sans-serif;
+    }
+    .status-pill.on-progress {
+        background-color: var(--abc-warning-bg);
+        color: var(--abc-warning);
+    }
+    .status-pill.completed {
+        background-color: var(--abc-success-bg);
+        color: var(--abc-success);
+    }
+    .status-pill.other {
+        background-color: #f1f5f9;
+        color: #475569;
     }
 
     /* 8. Help & Footer */
     .help-card {
-        background-color: #f1ebd8;
-        border-radius: 12px;
+        background-color: var(--abc-secondary);
+        border-radius: var(--abc-radius);
         padding: 30px;
         text-align: center;
         margin-top: 30px;
         margin-bottom: 40px;
     }
     .help-title {
-        font-family: 'Georgia', serif;
-        color: #033c29;
+        font-family: 'Lora', Georgia, serif;
+        color: var(--abc-brand);
         font-size: 20px;
-        font-weight: bold;
+        font-weight: 700;
         margin: 0 0 10px 0;
     }
     .help-description {
-        font-family: -apple-system, sans-serif;
-        color: #4b5563;
+        font-family: 'Manrope', sans-serif;
+        color: var(--abc-secondary-foreground);
         font-size: 14px;
         margin: 0;
         line-height: 1.5;
@@ -242,12 +294,12 @@ st.markdown(
 
     .footer-divider {
         border: 0;
-        border-top: 1px solid #e5e7eb;
+        border-top: 1px solid var(--abc-border);
         margin: 40px 0 25px 0;
     }
     .footer-container {
         text-align: center;
-        font-family: -apple-system, sans-serif;
+        font-family: 'Manrope', sans-serif;
         font-size: 13px;
         color: #4b5563;
         line-height: 1.8;
@@ -276,17 +328,19 @@ supabase = init_supabase()
 
 # --- CONSTANTS & CONFIGURATIONS ---
 CENTRES = [
-    "Aston", "Bayan Lepas", "Kepong", "Light Grey", "Puchong", 
+    "Aston", "Bayan Lepas", "Kepong", "Light Grey", "Puchong",
     "Taman Midah", "Gerik", "Ipoh", "Kelana Jaya", "Kajang"
 ]
 
 CENTRE_CLASSES = {
-    "Aston": 2, "Bayan Lepas": 1, "Kepong": 2, "Light Grey": 1, 
-    "Puchong": 3, "Taman Midah": 2, "Gerik": 1, "Ipoh": 1, 
+    "Aston": 2, "Bayan Lepas": 1, "Kepong": 2, "Light Grey": 1,
+    "Puchong": 3, "Taman Midah": 2, "Gerik": 1, "Ipoh": 1,
     "Kelana Jaya": 2, "Kajang": 1,
 }
 
 GRADES = [f"Grade {i}" for i in range(1, 9)]
+
+STATUS_OPTIONS = ["On Progress", "Completed", "Needs Review"]
 
 def get_subjects_and_na(grade):
     if grade in ["Grade 1", "Grade 2", "Grade 3"]:
@@ -301,19 +355,27 @@ def get_subjects_and_na(grade):
         return [("Math 8", True), ("English 8", True), ("Physical Science", True), ("United States History", True), ("Introduction to Public Speaking & Communications", True)]
     return []
 
+def status_pill_html(status):
+    css_class = "other"
+    if status == "On Progress":
+        css_class = "on-progress"
+    elif status == "Completed":
+        css_class = "completed"
+    return f'<span class="status-pill {css_class}">{status}</span>'
+
 # --- FETCH DATA ---
 def fetch_all_profiles():
     try:
         response = supabase.table("profiles").select("*").execute()
         return response.data if response.data else []
-    except Exception as e:
+    except Exception:
         return []
 
 def fetch_records_for_student(name, centre):
     try:
         response = supabase.table("records").select("*").eq("profile_key", f"{name}_{centre}").execute()
         return pd.DataFrame(response.data) if response.data else pd.DataFrame()
-    except Exception as e:
+    except Exception:
         return pd.DataFrame()
 
 # --- SESSION STATE INITIALIZATION ---
@@ -348,12 +410,11 @@ with st.container(border=True):
         """,
         unsafe_allow_html=True
     )
-    
-    # Layout for Selectbox and Create Button side-by-side
+
     col_sel, col_btn = st.columns([0.75, 0.25], vertical_alignment="bottom")
     with col_sel:
         selected_centre = st.selectbox(
-            "Centre", 
+            "Centre",
             ["Select your centre"] + CENTRES,
             label_visibility="visible"
         )
@@ -365,7 +426,6 @@ with st.container(border=True):
 
 # --- CONDITIONAL VIEWS ---
 if selected_centre == "Select your centre":
-    # HELP CARD (No centre selected)
     st.markdown(
         """
         <div class="help-card">
@@ -384,13 +444,13 @@ else:
         with st.container(border=True):
             st.markdown(f"### Register New Student in {selected_centre}")
             max_classes = CENTRE_CLASSES.get(selected_centre, 1)
-            
+
             with st.form("create_profile_form"):
                 f_name = st.text_input("Student Full Name")
                 c1, c2 = st.columns(2)
                 f_grade = c1.selectbox("Starting Grade", GRADES)
                 f_class = c2.selectbox("Class", [f"Class {i}" for i in range(1, max_classes + 1)])
-                
+
                 submitted = st.form_submit_button("Register Student", type="primary")
                 if submitted:
                     if not f_name.strip():
@@ -413,10 +473,10 @@ else:
                             records_to_insert = [{
                                 "profile_key": profile_key, "grade": f_grade, "subject": subj,
                                 "workbook": "0/30" if has_wb else "N/A", "community_service": 0,
-                                "attendance": 0, "behaviour": 0, 
+                                "attendance": 0, "behaviour": 0,
                                 "check_date": datetime.today().strftime("%d/%m/%y"), "status": "On Progress"
                             } for subj, has_wb in subj_config]
-                            
+
                             supabase.table("records").insert(records_to_insert).execute()
                             st.session_state.show_create_form = False
                             st.rerun()
@@ -426,7 +486,7 @@ else:
     # --- SEARCH BAR ---
     st.markdown("<br>", unsafe_allow_html=True)
     search_query = st.text_input("Search student", placeholder="🔍 Search student name", label_visibility="collapsed")
-    
+
     filtered_profiles = [p for p in centre_profiles if search_query.lower() in p["name"].lower()]
 
     # --- LIST / EMPTY STATE ---
@@ -441,7 +501,6 @@ else:
             unsafe_allow_html=True
         )
     else:
-        # Render Student Cards — whole row is clickable to open the profile
         for p in filtered_profiles:
             st.markdown('<div class="student-row-wrapper">', unsafe_allow_html=True)
             with st.container(border=True):
@@ -458,7 +517,6 @@ else:
                     )
 
                 with c_actions:
-                    # Trash button to withdraw/delete
                     if st.button("🗑️", key=f"del_{p['profile_key']}", help="Withdraw Student"):
                         try:
                             supabase.table("records").delete().eq("profile_key", p['profile_key']).execute()
@@ -469,23 +527,21 @@ else:
                         except Exception as e:
                             st.error(f"Error deleting: {e}")
 
-                # Invisible full-row button (styled via the .st-key-sel_ CSS above)
-                # that actually opens the profile when the card is clicked.
                 if st.button("Open profile", key=f"sel_{p['profile_key']}"):
                     st.session_state.viewing_student = p['name']
                     st.session_state.show_create_form = False
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
-                            
-    # --- STUDENT DASHBOARD VIEWER (Shown only if a student is clicked) ---
+
+    # --- STUDENT DASHBOARD VIEWER ---
     if st.session_state.viewing_student:
         student_info = next((p for p in centre_profiles if p["name"] == st.session_state.viewing_student), None)
         if student_info:
             st.markdown(f"---")
             st.markdown(f"### 📋 Managing: {student_info['name']}")
-            
+
             records_df = fetch_records_for_student(student_info['name'], selected_centre)
-            
+
             if not records_df.empty:
                 available_grades = sorted(records_df["grade"].unique(), key=lambda x: int(x.replace("Grade ", "")))
                 selected_grade_view = st.selectbox("Select Grade Record", available_grades)
@@ -495,7 +551,6 @@ else:
                 display_df = grade_records[["subject", "workbook", "community_service", "attendance", "behaviour", "check_date", "status"]].copy()
                 display_df.columns = ["Subject", "Workbook", "Community Service", "Attendance", "Behaviour", "Check Date", "Status"]
 
-                # Calculate Totals
                 totals = []
                 for idx, row in display_df.iterrows():
                     wb_val = str(row["Workbook"])
@@ -508,7 +563,7 @@ else:
                     else:
                         try:
                             wb_num = int(wb_val.split("/")[0].replace("-", ""))
-                        except:
+                        except Exception:
                             wb_num = 0
                         totals.append(f"-{wb_num + cs + att + beh}/50")
 
@@ -522,6 +577,7 @@ else:
                             "Subject": st.column_config.TextColumn("Subject", disabled=True),
                             "Total (-)": st.column_config.TextColumn("Total (-)", disabled=True),
                             "Check Date": st.column_config.TextColumn("Check Date", disabled=True),
+                            "Status": st.column_config.SelectboxColumn("Status", options=STATUS_OPTIONS),
                         },
                         use_container_width=True, hide_index=True,
                         key=f"editor_{student_info['profile_key']}_{selected_grade_view}",
@@ -541,7 +597,17 @@ else:
                         except Exception as e:
                             st.error(f"Error updating: {e}")
                 else:
-                    st.dataframe(display_df, use_container_width=True, hide_index=True)
+                    # Read-only past grade — render with a styled status pill to match the design system
+                    display_only = display_df.drop(columns=["Status"]).copy()
+                    st.dataframe(display_only, use_container_width=True, hide_index=True)
+                    st.markdown(
+                        "".join(
+                            f'<div style="display:flex; justify-content:space-between; padding:4px 2px; font-size:13px;">'
+                            f'<span>{row["Subject"]}</span>{status_pill_html(row["Status"])}</div>'
+                            for _, row in display_df.iterrows()
+                        ),
+                        unsafe_allow_html=True,
+                    )
 
     # LOWER HELP CARD
     st.markdown(
