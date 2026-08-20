@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 import pandas as pd
 import streamlit as st
 from supabase import create_client
@@ -133,7 +134,6 @@ def fetch_all_profiles():
     response = supabase.table("profiles").select("*").execute()
     return response.data if response.data else []
   except Exception as e:
-    st.error(f"Error fetching profiles: {e}")
     return []
 
 def fetch_records_for_student(name, centre):
@@ -148,17 +148,28 @@ def fetch_records_for_student(name, centre):
   except Exception as e:
     return pd.DataFrame()
 
-# --- HEADER BANNER ---
-st.markdown(
-    """
-    <div class="header-container">
-        <h1>Angels Bud Academy</h1>
-        <h3>Assessment Deduction</h3>
-        <p>Manage student profiles, assessment deductions, grade upgrades, and center records efficiently.</p>
-    </div>
-""",
-    unsafe_allow_html=True,
-)
+# --- HEADER BANNER WITH LOCAL CREST LOGO ---
+header_col1, header_col2 = st.columns([1, 5])
+with header_col1:
+  crest_path = "assets/angels-bud-crest.png"
+  if os.path.exists(crest_path):
+    st.image(crest_path, width=120)
+  else:
+    st.markdown("🏫")
+
+with header_col2:
+  st.markdown(
+      """
+      <div class="header-container" style="margin-bottom: 0px;">
+          <h1 style="margin: 0; font-size: 30px;">Angels Bud Academy</h1>
+          <h3 style="margin: 5px 0; font-weight: 400; opacity: 0.9;">Assessment Deduction</h3>
+          <p style="margin: 0; opacity: 0.8;">Manage student profiles, assessment deductions, grade upgrades, and center records efficiently.</p>
+      </div>
+  """,
+      unsafe_allow_html=True,
+  )
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 # --- APP INITIAL FILTER: SELECT CENTRE FIRST ---
 selected_centre = st.selectbox("📍 Select Centre", ["-- Select a Centre --"] + CENTRES)
@@ -169,11 +180,10 @@ if selected_centre == "-- Select a Centre --":
       " location."
   )
 else:
-  # Fetch profiles belonging to this centre
   all_profiles = fetch_all_profiles()
   centre_profiles = [p for p in all_profiles if p["centre"] == selected_centre]
 
-  # --- SIDEBAR: ACTIONS (Create Profile / Withdraw / Upgrade) ---
+  # --- SIDEBAR: ACTIONS ---
   st.sidebar.header(f"⚙️ Actions ({selected_centre})")
   action_mode = st.sidebar.radio(
       "Select Operation", ["View Records", "Create Student Profile", "Withdraw Student"]
@@ -195,7 +205,6 @@ else:
         if not full_name:
           st.sidebar.error("Please enter the student's full name.")
         else:
-          # Check duplication across this centre
           existing_names = [p["name"].lower() for p in centre_profiles]
           if full_name.lower() in existing_names:
             st.sidebar.warning(
@@ -205,7 +214,6 @@ else:
           else:
             profile_key = f"{full_name}_{selected_centre}"
             try:
-              # Insert Profile
               supabase.table("profiles").insert({
                   "profile_key": profile_key,
                   "name": full_name,
@@ -215,7 +223,6 @@ else:
                   "status": "On Progress",
               }).execute()
 
-              # Insert Initial Grade Records
               subj_config = get_subjects_and_na(grade)
               records_to_insert = []
               for subj, has_wb in subj_config:
@@ -277,13 +284,11 @@ else:
     )
     student_info = student_map[selected_student_name]
 
-    # Fetch all grade historical records for this student
     records_df = fetch_records_for_student(selected_student_name, selected_centre)
 
     if records_df.empty:
       st.warning("No assessment records found for this student.")
     else:
-      # Identify grades the student experienced
       available_grades = sorted(
           records_df["grade"].unique(),
           key=lambda x: int(x.replace("Grade ", "")),
@@ -301,20 +306,14 @@ else:
         st.markdown(f"**Current Grade:** {student_info['grade']}")
       st.markdown("---")
 
-      # Grade Selection Dropdown for viewing historical or active records
       selected_grade_view = st.selectbox(
           "Select Grade Record to View/Edit", available_grades
       )
-
-      # Determine if viewing current grade or past grade
       is_current_grade = selected_grade_view == student_info["grade"]
 
-      # Filter records for selected grade
       grade_records = records_df[
           records_df["grade"] == selected_grade_view
       ].copy()
-
-      # Format table columns
       display_df = grade_records[
           [
               "subject",
@@ -336,7 +335,6 @@ else:
           "Status",
       ]
 
-      # Calculate Totals
       totals = []
       for idx, row in display_df.iterrows():
         wb_val = str(row["Workbook"])
@@ -402,7 +400,6 @@ else:
             key=f"active_editor_{selected_student_name}_{selected_grade_view}",
         )
 
-        # Save changes back to Supabase
         if not edited_df.equals(display_df):
           try:
             for i, row in edited_df.iterrows():
@@ -453,8 +450,6 @@ else:
               f"Ready to upgrade **{selected_student_name}** from"
               f" **{student_info['grade']}** to **{next_grade}**?"
           )
-
-          # Confirmation checkbox before enabling upgrade button
           confirm_upgrade = st.checkbox(
               f"I confirm that {selected_student_name} is upgrading to"
               f" {next_grade}"
@@ -464,13 +459,10 @@ else:
             if confirm_upgrade:
               try:
                 profile_key = f"{selected_student_name}_{selected_centre}"
-
-                # Update student profile current grade
                 supabase.table("profiles").update({"grade": next_grade}).eq(
                     "profile_key", profile_key
                 ).execute()
 
-                # Initialize new grade subject records
                 subj_config = get_subjects_and_na(next_grade)
                 new_records = []
                 for subj, has_wb in subj_config:
@@ -494,24 +486,34 @@ else:
               except Exception as e:
                 st.error(f"Error during upgrade: {e}")
             else:
-                st.warning(
-                    "Please check the confirmation box above before clicking"
-                    " upgrade."
-                )
+              st.warning(
+                  "Please check the confirmation box above before clicking"
+                  " upgrade."
+              )
         else:
           st.info(
               "Student has already reached the maximum grade level (Grade 8)."
           )
 
-# --- FOOTER ---
+# --- FOOTER WITH VOK BANNER LOGO ---
 st.markdown("---")
-st.markdown(
-    """
-    <div style="text-align: center; color: #555; padding: 10px;">
-        <p>Contact: <b>Angels Bud Academy Management</b></p>
-        <p>Email: care@angelsbud.com, abcareline@gmail.com</p>
-        <p style="font-size: 12px; margin-top: 10px;">POWERED BY VOK — We Love We Care</p>
-    </div>
-""",
-    unsafe_allow_html=True,
-)
+col_f1, col_f2, col_f3 = st.columns([1, 2, 1])
+with col_f2:
+  st.markdown(
+      "<div style='text-align: center; color: #555;'>"
+      "<p style='margin-bottom: 4px;'>Contact: <b>Angels Bud Academy"
+      " Management</b></p>"
+      "<p style='margin-bottom: 15px;'>Email: care@angelsbud.com,"
+      " abcareline@gmail.com</p>"
+      "</div>",
+      unsafe_allow_html=True,
+  )
+  banner_path = "assets/vok-banner.png"
+  if os.path.exists(banner_path):
+    st.image(banner_path, use_container_width=True)
+  else:
+    st.markdown(
+        "<div style='text-align: center;'><b>POWERED BY VOK</b><br><span"
+        " style='font-size: 11px; color: #777;'>We Love We Care</span></div>",
+        unsafe_allow_html=True,
+    )
