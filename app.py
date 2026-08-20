@@ -34,10 +34,26 @@ st.markdown(
     /* Header Banner Styling */
     .header-container {
         background: linear-gradient(135deg, #094735 0%, #0d5c46 100%);
-        padding: 30px;
+        padding: 35px;
         border-radius: 16px;
         color: white;
         margin-bottom: 25px;
+        margin-top: 10px;
+    }
+    
+    /* Footer Styling Links */
+    .footer-text {
+        font-family: sans-serif;
+        color: #555;
+        font-size: 14px;
+    }
+    .footer-link {
+        color: #0d5c46;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    .footer-link:hover {
+        text-decoration: underline;
     }
     </style>
 """,
@@ -148,28 +164,32 @@ def fetch_records_for_student(name, centre):
   except Exception as e:
     return pd.DataFrame()
 
-# --- HEADER BANNER WITH LOCAL CREST LOGO ---
-header_col1, header_col2 = st.columns([1, 5])
-with header_col1:
-  crest_path = "assets/angels-bud-crest.png"
-  if os.path.exists(crest_path):
-    st.image(crest_path, width=120)
-  else:
-    st.markdown("🏫")
+# --- HEADER BANNER WITH SMALL OUTSIDE LOGO & BADGE ---
+crest_path = "assets/angels-bud-crest.png"
+if os.path.exists(crest_path):
+  col_logo, col_badge = st.columns([1, 15])
+  with col_logo:
+    st.image(crest_path, width=48)
+  with col_badge:
+    st.markdown(
+        """
+        <div style="display: inline-block; background-color: #e5b37e; color: #3b2813; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; font-family: sans-serif; margin-top: 10px;">
+            ✨ ANGELS BUD ACADEMY
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-with header_col2:
-  st.markdown(
-      """
-      <div class="header-container" style="margin-bottom: 0px;">
-          <h1 style="margin: 0; font-size: 30px;">Angels Bud Academy</h1>
-          <h3 style="margin: 5px 0; font-weight: 400; opacity: 0.9;">Assessment Deduction</h3>
-          <p style="margin: 0; opacity: 0.8;">Manage student profiles, assessment deductions, grade upgrades, and center records efficiently.</p>
-      </div>
-  """,
-      unsafe_allow_html=True,
-  )
-
-st.markdown("<br>", unsafe_allow_html=True)
+st.markdown(
+    """
+    <div class="header-container">
+        <h1 style="margin: 0; font-size: 36px; font-family: serif;">Angels Bud Academy</h1>
+        <h3 style="margin: 5px 0 15px 0; font-weight: 400; font-family: sans-serif; opacity: 0.95;">Assessment Deduction</h3>
+        <p style="margin: 0; font-family: sans-serif; opacity: 0.9; font-size: 15px;">Manage student profiles, assessment deductions, grade upgrades, and center records efficiently.</p>
+    </div>
+""",
+    unsafe_allow_html=True,
+)
 
 # --- APP INITIAL FILTER: SELECT CENTRE FIRST ---
 selected_centre = st.selectbox("📍 Select Centre", ["-- Select a Centre --"] + CENTRES)
@@ -495,25 +515,31 @@ else:
               "Student has already reached the maximum grade level (Grade 8)."
           )
 
-# --- FOOTER WITH VOK BANNER LOGO ---
+# --- FOOTER WITH LINKED CONTACTS AND VOK BANNER ---
 st.markdown("---")
+st.markdown(
+    """
+    <div style="text-align: center;" class="footer-text">
+        <p style="margin-bottom: 5px;">
+            Contact: <a href="https://wa.me/60164124122" target="_blank" class="footer-link"><b>Angels Bud Academy Management</b></a>
+        </p>
+        <p style="margin-bottom: 20px;">
+            Email: <a href="mailto:care@angelsbud.com" class="footer-link">care@angelsbud.com</a>, 
+            <a href="mailto:abcareline@gmail.com" class="footer-link">abcareline@gmail.com</a>
+        </p>
+    </div>
+""",
+    unsafe_allow_html=True,
+)
+
 col_f1, col_f2, col_f3 = st.columns([1, 2, 1])
 with col_f2:
-  st.markdown(
-      "<div style='text-align: center; color: #555;'>"
-      "<p style='margin-bottom: 4px;'>Contact: <b>Angels Bud Academy"
-      " Management</b></p>"
-      "<p style='margin-bottom: 15px;'>Email: care@angelsbud.com,"
-      " abcareline@gmail.com</p>"
-      "</div>",
-      unsafe_allow_html=True,
-  )
   banner_path = "assets/vok-banner.png"
   if os.path.exists(banner_path):
     st.image(banner_path, use_container_width=True)
   else:
     st.markdown(
-        "<div style='text-align: center;'><b>POWERED BY VOK</b><br><span"
+        "<div style='text-align: center;' class='footer-text'><b>POWERED BY VOK</b><br><span"
         " style='font-size: 11px; color: #777;'>We Love We Care</span></div>",
         unsafe_allow_html=True,
     )
