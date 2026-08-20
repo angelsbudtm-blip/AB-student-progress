@@ -9,7 +9,7 @@ from supabase import create_client
 st.set_page_config(
     page_title="Assessment Deduction — Angels Bud Academy", 
     layout="centered",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed" # Collapsed by default as actions moved to main UI
 )
 
 # --- IMAGE ENCODING HELPER ---
@@ -31,7 +31,6 @@ st.markdown(
         background-color: #f7f4ec !important;
     }
     
-    /* Remove default top padding */
     .block-container {
         padding-top: 2rem !important;
         max-width: 850px !important; 
@@ -83,7 +82,7 @@ st.markdown(
     }
     
     .header-title {
-        font-family: 'Georgia', serif;
+        font-family: 'Georgia', serif !important;
         font-size: 42px;
         font-weight: bold;
         margin: 0 0 5px 0;
@@ -91,7 +90,7 @@ st.markdown(
     }
     
     .header-subtitle {
-        font-family: 'Georgia', serif;
+        font-family: 'Georgia', serif !important;
         font-size: 24px;
         font-weight: bold;
         margin: 0 0 20px 0;
@@ -106,25 +105,86 @@ st.markdown(
         opacity: 0.95;
     }
 
-    /* 3. Style Streamlit's native containers */
+    /* 3. Streamlit Native Card Overrides */
     [data-testid="stVerticalBlockBorderWrapper"] {
         background-color: #ffffff;
         border: 1px solid #e5e7eb;
         border-radius: 12px;
-        padding: 10px 15px;
+        padding: 15px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
 
-    /* 4. Help Instruction Card */
+    /* 4. Headings styling */
+    h2, h3 {
+        font-family: 'Georgia', serif !important;
+        color: #033c29 !important;
+        font-weight: bold !important;
+    }
+
+    /* 5. Custom Button Styling */
+    .stButton > button[kind="primary"] {
+        background-color: #033c29 !important;
+        color: white !important;
+        border-radius: 8px !important;
+        height: 42px !important;
+        font-weight: 600 !important;
+    }
+
+    /* 6. Empty State Card */
+    .empty-state {
+        border: 1.5px dashed #cbd5e1;
+        border-radius: 12px;
+        padding: 40px 20px;
+        text-align: center;
+        background-color: #fafafa;
+        margin-top: 15px;
+        margin-bottom: 25px;
+    }
+    .empty-icon {
+        font-size: 32px;
+        color: #64748b;
+        margin-bottom: 10px;
+    }
+    .empty-text {
+        color: #64748b;
+        font-size: 14px;
+        font-family: -apple-system, sans-serif;
+    }
+
+    /* 7. Student List Card */
+    .student-title {
+        color: #033c29;
+        font-size: 18px;
+        font-weight: 500;
+        margin-bottom: 4px;
+    }
+    .student-subtitle {
+        color: #6b7280;
+        font-size: 13px;
+        font-family: -apple-system, sans-serif;
+    }
+    
+    /* Make trash button red */
+    [data-testid="stButton"] button[aria-label="Delete"] {
+        color: #ef4444 !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    [data-testid="stButton"] button[aria-label="Delete"]:hover {
+        color: #b91c1c !important;
+        background: #fee2e2 !important;
+    }
+
+    /* 8. Help & Footer */
     .help-card {
         background-color: #f1ebd8;
         border-radius: 12px;
         padding: 30px;
         text-align: center;
-        margin-top: 25px;
+        margin-top: 30px;
         margin-bottom: 40px;
     }
-    
     .help-title {
         font-family: 'Georgia', serif;
         color: #033c29;
@@ -132,7 +192,6 @@ st.markdown(
         font-weight: bold;
         margin: 0 0 10px 0;
     }
-    
     .help-description {
         font-family: -apple-system, sans-serif;
         color: #4b5563;
@@ -141,13 +200,11 @@ st.markdown(
         line-height: 1.5;
     }
 
-    /* 5. Footer Styling */
     .footer-divider {
         border: 0;
         border-top: 1px solid #e5e7eb;
         margin: 40px 0 25px 0;
     }
-    
     .footer-container {
         text-align: center;
         font-family: -apple-system, sans-serif;
@@ -155,11 +212,6 @@ st.markdown(
         color: #4b5563;
         line-height: 1.8;
     }
-    
-    .footer-container b {
-        color: #033c29;
-    }
-    
     .powered-by-text {
         font-size: 10px;
         color: #6b7280;
@@ -167,14 +219,6 @@ st.markdown(
         font-weight: 600;
         margin-top: 25px;
         margin-bottom: 5px;
-    }
-
-    /* Adjust Selectbox label */
-    .stSelectbox label p {
-        font-family: -apple-system, sans-serif;
-        color: #111827;
-        font-size: 14px;
-        font-weight: 500;
     }
     </style>
     """,
@@ -190,7 +234,7 @@ def init_supabase():
 
 supabase = init_supabase()
 
-# --- CONSTANTS ---
+# --- CONSTANTS & CONFIGURATIONS ---
 CENTRES = [
     "Aston", "Bayan Lepas", "Kepong", "Light Grey", "Puchong", 
     "Taman Midah", "Gerik", "Ipoh", "Kelana Jaya", "Kajang"
@@ -204,7 +248,6 @@ CENTRE_CLASSES = {
 
 GRADES = [f"Grade {i}" for i in range(1, 9)]
 
-# --- SUBJECT & N/A CONFIGURATIONS ---
 def get_subjects_and_na(grade):
     if grade in ["Grade 1", "Grade 2", "Grade 3"]:
         return [("Maths", True), ("Language Arts", True), ("Science", True), ("LA Extensions", False), ("Social Studies", False)]
@@ -233,16 +276,19 @@ def fetch_records_for_student(name, centre):
     except Exception as e:
         return pd.DataFrame()
 
+# --- SESSION STATE INITIALIZATION ---
+if 'show_create_form' not in st.session_state:
+    st.session_state.show_create_form = False
+if 'viewing_student' not in st.session_state:
+    st.session_state.viewing_student = None
+
 # --- MAIN UI: HEADER BANNER ---
 img_tag = f'<img src="data:image/png;base64,{crest_b64}" alt="Crest">' if crest_b64 else ''
-
 st.markdown(
     f"""
     <div class="main-header-card">
         <div class="header-top-row">
-            <div class="logo-box">
-                {img_tag}
-            </div>
+            <div class="logo-box">{img_tag}</div>
             <div class="academy-badge">ANGELS BUD ACADEMY</div>
         </div>
         <h1 class="header-title">Assessment Deduction</h1>
@@ -257,21 +303,29 @@ st.markdown(
 with st.container(border=True):
     st.markdown(
         """
-        <h2 style="font-family: 'Georgia', serif; color: #033c29; font-size: 24px; font-weight: bold; margin: 5px 0 5px 0;">Choose your centre</h2>
-        <p style="font-family: -apple-system, sans-serif; color: #6b7280; font-size: 14px; margin: 0 0 20px 0;">Student profiles appear once a centre is selected.</p>
+        <h2 style="margin: 5px 0 5px 0; font-size: 24px;">Choose your centre</h2>
+        <p style="color: #6b7280; font-size: 14px; margin: 0 0 15px 0;">Student profiles appear once a centre is selected.</p>
         """,
         unsafe_allow_html=True
     )
     
-    selected_centre = st.selectbox(
-        "Centre", 
-        ["Select your centre"] + CENTRES,
-        label_visibility="visible"
-    )
+    # Layout for Selectbox and Create Button side-by-side
+    col_sel, col_btn = st.columns([0.75, 0.25], vertical_alignment="bottom")
+    with col_sel:
+        selected_centre = st.selectbox(
+            "Centre", 
+            ["Select your centre"] + CENTRES,
+            label_visibility="visible"
+        )
+    with col_btn:
+        if selected_centre != "Select your centre":
+            if st.button("👤 Create profile", type="primary", use_container_width=True):
+                st.session_state.show_create_form = not st.session_state.show_create_form
+                st.session_state.viewing_student = None
 
-# --- CONDITIONAL VIEW & DASHBOARD LOGIC ---
+# --- CONDITIONAL VIEWS ---
 if selected_centre == "Select your centre":
-    # Show the "Help" Card when no centre is selected
+    # HELP CARD (No centre selected)
     st.markdown(
         """
         <div class="help-card">
@@ -282,236 +336,181 @@ if selected_centre == "Select your centre":
         unsafe_allow_html=True
     )
 else:
-    # Fetch profiles for the selected centre
     all_profiles = fetch_all_profiles()
     centre_profiles = [p for p in all_profiles if p["centre"] == selected_centre]
 
-    # --- SIDEBAR: ACTIONS ---
-    st.sidebar.header(f"⚙️ Actions ({selected_centre})")
-    action_mode = st.sidebar.radio("Select Operation", ["View Records", "Create Student Profile", "Withdraw Student"])
-
-    # 1. CREATE PROFILE FORM
-    if action_mode == "Create Student Profile":
-        st.sidebar.subheader("Register New Student")
-        max_classes = CENTRE_CLASSES.get(selected_centre, 1)
-        class_options = [f"Class {i}" for i in range(1, max_classes + 1)]
-
-        with st.sidebar.form("create_profile"):
-            full_name = st.text_input("Student Full Name").strip()
-            grade = st.selectbox("Starting Grade", GRADES)
-            class_name = st.selectbox("Class", class_options)
-            submit_btn = st.form_submit_button("Register & Start")
-
-            if submit_btn:
-                if not full_name:
-                    st.sidebar.error("Please enter the student's full name.")
-                else:
-                    existing_names = [p["name"].lower() for p in centre_profiles]
-                    if full_name.lower() in existing_names:
-                        st.sidebar.warning(f"A student named '{full_name}' already exists in {selected_centre}!")
+    # --- INLINE CREATE STUDENT FORM ---
+    if st.session_state.show_create_form:
+        with st.container(border=True):
+            st.markdown(f"### Register New Student in {selected_centre}")
+            max_classes = CENTRE_CLASSES.get(selected_centre, 1)
+            
+            with st.form("create_profile_form"):
+                f_name = st.text_input("Student Full Name")
+                c1, c2 = st.columns(2)
+                f_grade = c1.selectbox("Starting Grade", GRADES)
+                f_class = c2.selectbox("Class", [f"Class {i}" for i in range(1, max_classes + 1)])
+                
+                submitted = st.form_submit_button("Register Student", type="primary")
+                if submitted:
+                    if not f_name.strip():
+                        st.error("Please enter a name.")
+                    elif f_name.strip().lower() in [p["name"].lower() for p in centre_profiles]:
+                        st.warning("Student already exists!")
                     else:
-                        profile_key = f"{full_name}_{selected_centre}"
+                        profile_key = f"{f_name.strip()}_{selected_centre}"
                         try:
                             supabase.table("profiles").insert({
                                 "profile_key": profile_key,
-                                "name": full_name,
-                                "grade": grade,
-                                "class": class_name,
+                                "name": f_name.strip(),
+                                "grade": f_grade,
+                                "class": f_class,
                                 "centre": selected_centre,
                                 "status": "On Progress",
                             }).execute()
 
-                            subj_config = get_subjects_and_na(grade)
-                            records_to_insert = []
-                            for subj, has_wb in subj_config:
-                                records_to_insert.append({
-                                    "profile_key": profile_key,
-                                    "grade": grade,
-                                    "subject": subj,
-                                    "workbook": "0/30" if has_wb else "N/A",
-                                    "community_service": 0,
-                                    "attendance": 0,
-                                    "behaviour": 0,
-                                    "check_date": datetime.today().strftime("%d/%m/%y"),
-                                    "status": "On Progress",
-                                })
+                            subj_config = get_subjects_and_na(f_grade)
+                            records_to_insert = [{
+                                "profile_key": profile_key, "grade": f_grade, "subject": subj,
+                                "workbook": "0/30" if has_wb else "N/A", "community_service": 0,
+                                "attendance": 0, "behaviour": 0, 
+                                "check_date": datetime.today().strftime("%d/%m/%y"), "status": "On Progress"
+                            } for subj, has_wb in subj_config]
+                            
                             supabase.table("records").insert(records_to_insert).execute()
-                            st.sidebar.success(f"Successfully registered {full_name} in {selected_centre}!")
+                            st.session_state.show_create_form = False
                             st.rerun()
                         except Exception as e:
-                            st.sidebar.error(f"Error creating profile: {e}")
+                            st.error(f"Error: {e}")
 
-    # 2. WITHDRAW PROFILE
-    elif action_mode == "Withdraw Student":
-        st.sidebar.subheader("Withdraw / Delete Student")
-        if not centre_profiles:
-            st.sidebar.info("No students registered under this centre yet.")
-        else:
-            student_names = [p["name"] for p in centre_profiles]
-            to_delete = st.sidebar.selectbox("Select Student to Withdraw", student_names)
-            if st.sidebar.button("Confirm Withdrawal", type="primary"):
-                try:
-                    profile_key = f"{to_delete}_{selected_centre}"
-                    supabase.table("records").delete().eq("profile_key", profile_key).execute()
-                    supabase.table("profiles").delete().eq("profile_key", profile_key).execute()
-                    st.sidebar.success(f"Student '{to_delete}' has been successfully withdrawn.")
-                    st.rerun()
-                except Exception as e:
-                    st.sidebar.error(f"Error withdrawing student: {e}")
-
-    # --- MAIN VIEW LOGIC ---
+    # --- SEARCH BAR ---
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown(f"### 📋 Student Records for {selected_centre}")
+    search_query = st.text_input("Search student", placeholder="🔍 Search student name", label_visibility="collapsed")
+    
+    filtered_profiles = [p for p in centre_profiles if search_query.lower() in p["name"].lower()]
 
-    if not centre_profiles:
-        st.info("No student profiles found for this centre. Use the sidebar to create a student profile.")
+    # --- LIST / EMPTY STATE ---
+    if not filtered_profiles:
+        st.markdown(
+            f"""
+            <div class="empty-state">
+                <div class="empty-icon">🎓</div>
+                <div class="empty-text">No student profiles in {selected_centre} yet. Create one to start recording deductions.</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
     else:
-        student_map = {p["name"]: p for p in centre_profiles}
-        selected_student_name = st.selectbox("Select Student Profile", list(student_map.keys()))
-        student_info = student_map[selected_student_name]
-        records_df = fetch_records_for_student(selected_student_name, selected_centre)
-
-        if records_df.empty:
-            st.warning("No assessment records found for this student.")
-        else:
-            available_grades = sorted(
-                records_df["grade"].unique(),
-                key=lambda x: int(x.replace("Grade ", "")),
-            )
-
-            st.markdown("---")
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.markdown(f"**Name:**\n{student_info['name']}")
-            with col2:
-                st.markdown(f"**Class:**\n{student_info['class']}")
-            with col3:
-                st.markdown(f"**Centre:**\n{student_info['centre']}")
-            with col4:
-                st.markdown(f"**Current Grade:**\n{student_info['grade']}")
-            st.markdown("---")
-
-            selected_grade_view = st.selectbox("Select Grade Record to View/Edit", available_grades)
-            is_current_grade = selected_grade_view == student_info["grade"]
-
-            grade_records = records_df[records_df["grade"] == selected_grade_view].copy()
-            display_df = grade_records[
-                ["subject", "workbook", "community_service", "attendance", "behaviour", "check_date", "status"]
-            ].copy()
-            display_df.columns = ["Subject", "Workbook", "Community Service", "Attendance", "Behaviour", "Check Date", "Status"]
-
-            totals = []
-            for idx, row in display_df.iterrows():
-                wb_val = str(row["Workbook"])
-                cs = int(row["Community Service"])
-                att = int(row["Attendance"])
-                beh = int(row["Behaviour"])
-
-                if wb_val == "N/A":
-                    total = cs + att + beh
-                    totals.append(f"-{total}/20")
-                else:
-                    try:
-                        wb_num = int(wb_val.split("/")[0].replace("-", ""))
-                    except:
-                        wb_num = 0
-                    total = wb_num + cs + att + beh
-                    totals.append(f"-{total}/50")
-
-            display_df["Total (-)"] = totals
-            display_df = display_df[
-                ["Subject", "Workbook", "Community Service", "Attendance", "Behaviour", "Total (-)", "Check Date", "Status"]
-            ]
-
-            if is_current_grade:
-                st.markdown(f"#### Active Record — {selected_grade_view}")
-                edited_df = st.data_editor(
-                    display_df,
-                    column_config={
-                        "Subject": st.column_config.TextColumn("Subject", disabled=True),
-                        "Workbook": st.column_config.TextColumn("Workbook (-) [Format: X/30 or N/A]"),
-                        "Community Service": st.column_config.NumberColumn("Community Service", min_value=0, max_value=10, step=1),
-                        "Attendance": st.column_config.NumberColumn("Attendance", min_value=0, max_value=5, step=1),
-                        "Behaviour": st.column_config.NumberColumn("Behaviour", min_value=0, max_value=5, step=1),
-                        "Total (-)": st.column_config.TextColumn("Total (-)", disabled=True),
-                        "Check Date": st.column_config.TextColumn("Check Date", disabled=True),
-                        "Status": st.column_config.SelectboxColumn("Status", options=["On Progress", "Completed"], required=True),
-                    },
-                    use_container_width=True,
-                    hide_index=True,
-                    key=f"active_editor_{selected_student_name}_{selected_grade_view}",
-                )
-
-                if not edited_df.equals(display_df):
-                    try:
-                        for i, row in edited_df.iterrows():
-                            orig_row = display_df.loc[i]
-                            if (
-                                row["Workbook"] != orig_row["Workbook"]
-                                or row["Community Service"] != orig_row["Community Service"]
-                                or row["Attendance"] != orig_row["Attendance"]
-                                or row["Behaviour"] != orig_row["Behaviour"]
-                                or row["Status"] != orig_row["Status"]
-                            ):
-                                new_date = datetime.today().strftime("%d/%m/%y")
-                            else:
-                                new_date = orig_row["Check Date"]
-
-                            supabase.table("records").update({
-                                "workbook": row["Workbook"],
-                                "community_service": int(row["Community Service"]),
-                                "attendance": int(row["Attendance"]),
-                                "behaviour": int(row["Behaviour"]),
-                                "check_date": new_date,
-                                "status": row["Status"],
-                            }).eq("profile_key", f"{selected_student_name}_{selected_centre}").eq("grade", selected_grade_view).eq("subject", row["Subject"]).execute()
+        # Render Student Cards
+        for p in filtered_profiles:
+            with st.container(border=True):
+                # Using columns to put text on left and delete button on right
+                c_text, c_actions = st.columns([0.9, 0.1], vertical_alignment="center")
+                
+                with c_text:
+                    # Added a hidden button mechanism here so clicking the text can open the editor
+                    is_middle = "Middle School" if int(p['grade'].split(' ')[1]) >= 6 else "Primary School"
+                    st.markdown(
+                        f"""
+                        <div class="student-title">{p['name']}</div>
+                        <div class="student-subtitle">{p['grade']} · {is_middle} · {p['class']} · {p['centre']}</div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    # Invisible button overlaid to allow selecting the student
+                    if st.button(f"View {p['name']}", key=f"sel_{p['profile_key']}", help="View & Edit Records", use_container_width=True):
+                        st.session_state.viewing_student = p['name']
+                        st.session_state.show_create_form = False
                         st.rerun()
-                    except Exception as e:
-                        st.error(f"Error updating record: {e}")
-            else:
-                st.markdown(f"#### Historical Record (Locked) — {selected_grade_view}")
-                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                        
+                with c_actions:
+                    # Trash button to withdraw/delete
+                    if st.button("🗑️", key=f"del_{p['profile_key']}", help="Withdraw Student"):
+                        try:
+                            supabase.table("records").delete().eq("profile_key", p['profile_key']).execute()
+                            supabase.table("profiles").delete().eq("profile_key", p['profile_key']).execute()
+                            if st.session_state.viewing_student == p['name']:
+                                st.session_state.viewing_student = None
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error deleting: {e}")
+                            
+    # --- STUDENT DASHBOARD VIEWER (Shown only if a student is clicked) ---
+    if st.session_state.viewing_student:
+        student_info = next((p for p in centre_profiles if p["name"] == st.session_state.viewing_student), None)
+        if student_info:
+            st.markdown(f"---")
+            st.markdown(f"### 📋 Managing: {student_info['name']}")
+            
+            records_df = fetch_records_for_student(student_info['name'], selected_centre)
+            
+            if not records_df.empty:
+                available_grades = sorted(records_df["grade"].unique(), key=lambda x: int(x.replace("Grade ", "")))
+                selected_grade_view = st.selectbox("Select Grade Record", available_grades)
+                is_current_grade = selected_grade_view == student_info["grade"]
 
-            # --- UPGRADE STUDENT GRADE SECTION ---
-            if is_current_grade:
-                st.markdown("---")
-                st.markdown("### 🚀 Student Grade Upgrade")
-                current_grade_num = int(student_info["grade"].replace("Grade ", ""))
+                grade_records = records_df[records_df["grade"] == selected_grade_view].copy()
+                display_df = grade_records[["subject", "workbook", "community_service", "attendance", "behaviour", "check_date", "status"]].copy()
+                display_df.columns = ["Subject", "Workbook", "Community Service", "Attendance", "Behaviour", "Check Date", "Status"]
 
-                if current_grade_num < 8:
-                    next_grade = f"Grade {current_grade_num + 1}"
-                    st.write(f"Ready to upgrade **{selected_student_name}** from **{student_info['grade']}** to **{next_grade}**?")
-                    confirm_upgrade = st.checkbox(f"I confirm that {selected_student_name} is upgrading to {next_grade}")
+                # Calculate Totals
+                totals = []
+                for idx, row in display_df.iterrows():
+                    wb_val = str(row["Workbook"])
+                    cs = int(row["Community Service"])
+                    att = int(row["Attendance"])
+                    beh = int(row["Behaviour"])
 
-                    if st.button("Upgrade Student Grade", type="primary"):
-                        if confirm_upgrade:
-                            try:
-                                profile_key = f"{selected_student_name}_{selected_centre}"
-                                supabase.table("profiles").update({"grade": next_grade}).eq("profile_key", profile_key).execute()
+                    if wb_val == "N/A":
+                        totals.append(f"-{cs + att + beh}/20")
+                    else:
+                        try:
+                            wb_num = int(wb_val.split("/")[0].replace("-", ""))
+                        except:
+                            wb_num = 0
+                        totals.append(f"-{wb_num + cs + att + beh}/50")
 
-                                subj_config = get_subjects_and_na(next_grade)
-                                new_records = []
-                                for subj, has_wb in subj_config:
-                                    new_records.append({
-                                        "profile_key": profile_key,
-                                        "grade": next_grade,
-                                        "subject": subj,
-                                        "workbook": "0/30" if has_wb else "N/A",
-                                        "community_service": 0,
-                                        "attendance": 0,
-                                        "behaviour": 0,
-                                        "check_date": datetime.today().strftime("%d/%m/%y"),
-                                        "status": "On Progress",
-                                    })
-                                supabase.table("records").insert(new_records).execute()
-                                st.success(f"{selected_student_name} successfully upgraded to {next_grade}!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Error during upgrade: {e}")
-                        else:
-                            st.warning("Please check the confirmation box above before clicking upgrade.")
+                display_df["Total (-)"] = totals
+                display_df = display_df[["Subject", "Workbook", "Community Service", "Attendance", "Behaviour", "Total (-)", "Check Date", "Status"]]
+
+                if is_current_grade:
+                    edited_df = st.data_editor(
+                        display_df,
+                        column_config={
+                            "Subject": st.column_config.TextColumn("Subject", disabled=True),
+                            "Total (-)": st.column_config.TextColumn("Total (-)", disabled=True),
+                            "Check Date": st.column_config.TextColumn("Check Date", disabled=True),
+                        },
+                        use_container_width=True, hide_index=True,
+                        key=f"editor_{student_info['profile_key']}_{selected_grade_view}",
+                    )
+
+                    if not edited_df.equals(display_df):
+                        try:
+                            for i, row in edited_df.iterrows():
+                                orig_row = display_df.loc[i]
+                                if (row["Workbook"] != orig_row["Workbook"] or row["Community Service"] != orig_row["Community Service"] or row["Attendance"] != orig_row["Attendance"] or row["Behaviour"] != orig_row["Behaviour"] or row["Status"] != orig_row["Status"]):
+                                    supabase.table("records").update({
+                                        "workbook": row["Workbook"], "community_service": int(row["Community Service"]),
+                                        "attendance": int(row["Attendance"]), "behaviour": int(row["Behaviour"]),
+                                        "check_date": datetime.today().strftime("%d/%m/%y"), "status": row["Status"],
+                                    }).eq("profile_key", student_info['profile_key']).eq("grade", selected_grade_view).eq("subject", row["Subject"]).execute()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error updating: {e}")
                 else:
-                    st.info("Student has already reached the maximum grade level (Grade 8).")
+                    st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+    # LOWER HELP CARD
+    st.markdown(
+        """
+        <div class="help-card" style="margin-top: 40px;">
+            <h3 class="help-title">Need a hand with the next step?</h3>
+            <p class="help-description">Choose your centre, open a student profile and record the assessment deduction for the current grade — every previous grade stays saved.</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # --- FOOTER ---
 vok_img_tag = f'<img src="data:image/png;base64,{vok_b64}" alt="VOK Banner" style="width: 140px; border-radius: 4px;">' if vok_b64 else '<div style="font-size:12px; color:#888;">We Love We Care</div>'
@@ -521,7 +520,7 @@ st.markdown(
     <hr class="footer-divider">
     <div class="footer-container">
         Contact: <b>Angels Bud Academy Management</b><br>
-        Email: <b>care@angelsbud.com</b>, <b>abcareline@gmail.com</b>
+        Email: <b style="color: #033c29;">care@angelsbud.com</b>, <b style="color: #033c29;">abcareline@gmail.com</b>
         <div class="powered-by-text">POWERED BY</div>
         {vok_img_tag}
     </div>
